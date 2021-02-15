@@ -7,7 +7,6 @@
 (setq marko-linux (featurep 'x))
 
 (global-hl-line-mode 1)
-(set-face-background 'hl-line "grey10")
 
 (setq compilation-directory-locked nil)
 (scroll-bar-mode -1)
@@ -28,12 +27,6 @@
 (require 'compile)
 (ido-mode t)
 
-; Setup my find-files
-(define-key global-map "\ef" 'find-file)
-(define-key global-map "\eF" 'find-file-other-window)
-
-(global-set-key (read-kbd-macro "\eb")  'ido-switch-buffer)
-(global-set-key (read-kbd-macro "\eB")  'ido-switch-buffer-other-window)
 
 (defun marko-ediff-setup-windows (buffer-A buffer-B buffer-C control-buffer)
   (ediff-setup-windows-plain buffer-A buffer-B buffer-C control-buffer)
@@ -282,28 +275,9 @@
       (untabify (point-min) (point-max))))
   (save-buffer))
 
-; TXT mode handling
-(defun marko-big-fun-text-hook ()
-  ; 4-space tabs
-  (setq tab-width 4
-        indent-tabs-mode nil)
-
-  ; Newline indents, semi-colon doesn't
-  (define-key text-mode-map "\C-m" 'newline-and-indent)
-
-  ; Prevent overriding of alt-s
-  (define-key text-mode-map "\es" 'marko-save-buffer)
-  )
-(add-hook 'text-mode-hook 'marko-big-fun-text-hook)
-
-; Window Commands
-(defun w32-restore-frame ()
-    "Restore a minimized frame"
-     (interactive)
-     (w32-send-sys-command 61728))
 
 
-(define-key global-map "\ep" 'quick-calc)
+(define-key global-map "\eq" 'quick-calc)
 (define-key global-map "\ew" 'other-window)
 
 ; Navigation
@@ -320,16 +294,6 @@
   (search-forward-regexp "^[ \t]*\n")
   (forward-line -1)
 )
-
-
-;; ; ALT-alternatives
-;; (defadvice set-mark-command (after no-bloody-t-m-m activate)
-;;   "Prevent consecutive marks activating bloody `transient-mark-mode'."
-;;   (if transient-mark-mode (setq transient-mark-mode nil)))
-
-;; (defadvice mouse-set-region-1 (after no-bloody-t-m-m activate)
-;;   "Prevent mouse commands activating bloody `transient-mark-mode'."
-;;   (if transient-mark-mode (setq transient-mark-mode nil))) 
 
 
 ; Compilation
@@ -421,6 +385,8 @@
 (set-face-attribute 'font-lock-string-face nil :foreground "olive drab")
 (set-face-attribute 'font-lock-type-face nil :foreground "DarkGoldenrod3")
 (set-face-attribute 'font-lock-variable-name-face nil :foreground "burlywood3")
+(set-face-attribute 'region nil :background "grey18")
+(set-face-background 'hl-line "grey12")
 
 (defun post-load-stuff ()
   (interactive)
@@ -437,11 +403,6 @@
   :keymap (make-sparse-keymap))
 (marko-nav-mode)
 
-(define-minor-mode marko-visual-mode
-  "Visual mode"
-  :lighter " Visual mode "
-  :keymap (make-sparse-keymap))
-
 (defun marko-enter-edit-mode ()
   (interactive)
   (set-cursor-color "#ffffff")
@@ -452,21 +413,17 @@
   (set-cursor-color "#b68100")
   (marko-nav-mode))
 
-(defun marko-enter-visual-mode ()
-  (interactive)
-  (marko-nav-mode -1)
-  (marko-visual-mode)
-  (transient-mark-mode)
-  (set-mark-command nil)
-  )
-  
-(defun marko-exit-visual-mode ()
-  (interactive)
-  (marko-visual-mode -1)
-  (deactivate-mark)
-  (marko-nav-mode))
+(defun marko-newline-indent ()
+   (interactive)
+   (move-end-of-line nil)
+   (newline-and-indent)
+   (marko-enter-edit-mode))
 
-  
+(defun marko-kill-line ()
+  (interactive)
+  (kill-line)
+  (marko-enter-edit-mode))
+
 (defun marko-copy-line ()
   (interactive)
   (save-excursion
@@ -475,20 +432,35 @@
      (point)
      (line-end-position))))    
 
-(defun marko-newline-indent ()
-   (interactive)
-   (move-end-of-line nil)
-   (newline-and-indent)
-   (marko-enter-edit-mode))
+
+(define-minor-mode marko-visual-mode
+  "Visual mode"
+  :lighter " Visual mode "
+  :keymap (make-sparse-keymap))
+
+(defun marko-enter-visual-mode ()
+  (interactive)
+  (marko-nav-mode -1)
+  (marko-visual-mode)
+  (set-mark-command nil)
+  )
+  
+(defun marko-exit-visual-mode ()
+  (interactive)
+  (marko-visual-mode -1)
+  (deactivate-mark)
+  (marko-nav-mode))
+  
 
 (defun marko-kill-region ()
   (interactive)
   (kill-region 0 0 'region)
   (marko-exit-visual-mode))
 
+
 (defun marko-comment-region()
   (interactive)
-  (comment-region 0 0 'region)
+  (comment-or-uncomment-region 0 0 'region)
   (marko-exit-visual-mode))
 
 (defun marko-replace-in-region (old-word new-word)
@@ -502,6 +474,9 @@
   (marko-exit-visual-mode)
   )
 
+(defun marko-indent-region ()
+  (interactive)
+  (marko-exit-visual-mode))
 
 (define-key global-map (kbd "`") 'marko-exit-edit-mode)
 
@@ -518,9 +493,12 @@
 (define-key marko-nav-mode-map (kbd "o") 'marko-newline-indent)
 (define-key marko-nav-mode-map (kbd "i") 'marko-enter-edit-mode)
 (define-key marko-nav-mode-map (kbd "x") 'delete-char)
+(define-key marko-nav-mode-map (kbd "g g") 'beginning-of-buffer)
+(define-key marko-nav-mode-map (kbd "C") 'marko-kill-line)
 
 (define-key marko-nav-mode-map (kbd "v") 'marko-enter-visual-mode)
 (define-key marko-visual-mode-map (kbd "`") 'marko-exit-visual-mode)
+(define-key marko-visual-mode-map [escape] 'marko-exit-visual-mode)
 (define-key marko-visual-mode-map (kbd "j") 'next-line)
 (define-key marko-visual-mode-map (kbd "k") 'previous-line)
 (define-key marko-visual-mode-map (kbd "l") 'forward-char)
@@ -528,24 +506,19 @@
 (define-key marko-visual-mode-map (kbd "d") 'marko-kill-region)
 (define-key marko-visual-mode-map (kbd "c") 'marko-comment-region)
 (define-key marko-visual-mode-map (kbd "r r") 'marko-replace-in-region)
+(define-key marko-visual-mode-map (kbd ">") 'marko-indent-region)
 
-(define-key c++-mode-map [f12] 'marko-find-corresponding-file)
-(define-key c++-mode-map [M-f12] 'marko-find-corresponding-file-other-window)
-
-  ; Alternate bindings for F-keyless setups (ie MacOS X terminal)
 (define-key c++-mode-map "\ec" 'marko-find-corresponding-file)
 (define-key c++-mode-map "\eC" 'marko-find-corresponding-file-other-window)
 
 (define-key c++-mode-map "\es" 'marko-save-buffer)
+(define-key c++-mode-map "\t" 'dabbrev-expand)
+(define-key c++-mode-map "\ep" 'imenu)
 
 (define-key global-map "\t" 'dabbrev-expand)
 (define-key global-map [S-tab] 'indent-for-tab-command)
 (define-key global-map [backtab] 'indent-for-tab-command)
 (define-key global-map "\C-y" 'indent-for-tab-command)
-(define-key global-map [C-tab] 'indent-region)
-(define-key global-map "	" 'indent-region)
-(define-key c++-mode-map "\t" 'dabbrev-expand)
-(define-key c++-mode-map "\ej" 'imenu)
 (define-key global-map "\em" 'make-without-asking)
 
 (define-key global-map "\eo" 'query-replace)
@@ -589,12 +562,14 @@
 (define-key global-map [C-next] 'scroll-other-window-down-window)
 (define-key global-map [C-prior] 'scroll-other-window-down)
 
-; Editting
-(define-key global-map "" 'copy-region-as-kill)
-(define-key global-map "" 'yank)
 (define-key global-map "" 'nil)
 (define-key global-map "" 'rotate-yank-pointer)
-(define-key global-map "\eu" 'undo)
 (define-key global-map "\e6" 'upcase-word)
 (define-key global-map "\e^" 'captilize-word)
 (define-key global-map "\e." 'fill-paragraph)
+; Setup my find-files
+(define-key global-map "\ef" 'find-file)
+(define-key global-map "\eF" 'find-file-other-window)
+
+(global-set-key (read-kbd-macro "\eb")  'ido-switch-buffer)
+(global-set-key (read-kbd-macro "\eB")  'ido-switch-buffer-other-window)
