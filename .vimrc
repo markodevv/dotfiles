@@ -55,7 +55,7 @@ map <m-k> <C-u>
 
 nnoremap <m-p> :call GoToFunction()<CR>
 nnoremap <m-m> :call CompilePopup(".")<CR>
-nnoremap <m-=> :call CompilePopupClose()<CR>
+nnoremap <m-=> :call TogglePopup()<CR>
 
 inoremap ( ()<Esc>i
 inoremap [ []<Esc>i
@@ -151,10 +151,16 @@ function! CompilePopup(directory)
     for file_path in file_list
         let file_path_split = split(file_path, '\')
         let file_name_index = len(file_path_split) - 1
-        " echom file_path_split[file_name_index] 
+
+
         if file_path_split[file_name_index] == "build.bat"
             let path_to_file = file_path[:-10]
             exe 'cd ' . path_to_file
+
+            let popup_list = popup_list()
+            if (len(popup_list) > 0)
+                call popup_close(popup_list[0])
+            endif
 
             let popup_args = {'posinvert':'FALSE', 'minwidth':204, 'minheight':30, 'col':1, 'line':25, 'border':[1]}
             let buf = term_start("build.bat", #{hidden: 1})
@@ -163,15 +169,28 @@ function! CompilePopup(directory)
             call win_execute(winid, 'setlocal wincolor=win_color')
 
 
+
         elseif isdirectory(file_path)
             call CompilePopup(file_path)
         endif
     endfor
 endfunction
 
-function! CompilePopupClose()
-    exe 'exit'
-    call popup_clear()
+function! TogglePopup()
+    let winid = popup_list()
+
+    if (len(winid) > 0)
+
+        let popup_fields = popup_getpos(winid[0])
+
+        if (!popup_fields["visible"])
+            call popup_show(winid[0])
+        else
+            call popup_hide(winid[0])
+            execute "normal \<m-w>"
+        endif
+    endif
+
 endfunction
 
 function ClosePair(char)
