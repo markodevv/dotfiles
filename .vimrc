@@ -58,8 +58,8 @@ nnoremap <m-p> :call GoToFunction()<CR>
 nnoremap <m-m> :silent make<CR>
 nnoremap <m-e> :cnext<CR>
 nnoremap <m-q> :cprevious<CR>
-nnoremap <m-=> :call TogglePopup()<CR>
 nnoremap <m-w> :call SwitchWindow()<CR>
+nnoremap <m-r> :call SearchAndReplace()<CR>
 
 inoremap ( ()<Esc>i
 inoremap [ []<Esc>i
@@ -85,6 +85,7 @@ function! SwitchWindow()
 
     echom s:is_cursor_left
 endfunction
+
 
 function! ToggleCompileWindow()
 endfunction
@@ -148,9 +149,19 @@ function! GetFunctionLineNumber(function_name)
     return -1
 endfunction
 
+function! SearchAndReplace()
+    call inputsave()
+    let replace = input("Replace: ")
+    let replace_with = input("With: ")
+    call inputrestore()
+
+    execute ":%s/" . replace . "/" . replace_with . "/" . "gcI"
+
+endfunction
+
 function! GoToFunction()
     call inputsave()
-    let input_string = input("Function name: ", "", "customlist,AllFileFunctionsNames")
+    let input_string = input("Go To Function: ", "", "customlist,AllFileFunctionsNames")
     call inputrestore()
 
     let function_line_number = GetFunctionLineNumber(input_string)
