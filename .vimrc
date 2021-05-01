@@ -32,6 +32,8 @@ set incsearch
 set cursorline
 set guifont=Liberation_Mono:h10.9
 
+set makeprg=build.bat
+
 set wildmenu
 set wildmode=longest:full,full
 " save file
@@ -45,7 +47,6 @@ map <m-f> :e
 " find buffer
 map <m-b> :buffer 
 " switch to other window
-map <m-w> <c-w><c-w>
 " complete word
 inoremap <Tab> <C-n>
 " scrolling window
@@ -54,8 +55,11 @@ map <m-j> <C-d>
 map <m-k> <C-u>
 
 nnoremap <m-p> :call GoToFunction()<CR>
-nnoremap <m-m> :call CompilePopup(".")<CR>
+nnoremap <m-m> :silent make<CR>
+nnoremap <m-e> :cnext<CR>
+nnoremap <m-q> :cprevious<CR>
 nnoremap <m-=> :call TogglePopup()<CR>
+nnoremap <m-w> :call SwitchWindow()<CR>
 
 inoremap ( ()<Esc>i
 inoremap [ []<Esc>i
@@ -68,10 +72,22 @@ inoremap " <c-r>=QuoteDelim('"')<CR>
 inoremap ' <c-r>=QuoteDelim("'")<CR>
 
 
+let s:is_cursor_left = 0
+
 function! SwitchWindow()
-    execute "normal \<m-w>"
+    if s:is_cursor_left == 1
+        let s:is_cursor_left = 0
+        execute "normal \<c-w>l"
+    else
+        let s:is_cursor_left = 1
+        execute "normal \<c-w>h"
+    endif
+
+    echom s:is_cursor_left
 endfunction
 
+function! ToggleCompileWindow()
+endfunction
 
 function! CompileProject(directory)
 
