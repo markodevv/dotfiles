@@ -1,4 +1,3 @@
-" TODO: commenting code
 " TODO: running app
 " TODO: make vim auto add user defined struct as syntax highliting information
 
@@ -36,10 +35,8 @@ set makeprg=build.bat
 
 set wildmenu
 set wildmode=longest:full,full
-" save file
-map <m-s> :w<CR>
 " switch to coresponding cpp/h file
-map <m-c> :e %:p:s,.h$,.X123X,:s,.cpp$,.h,:s,.X123X$,.cpp,<CR>
+"map <m-c> :e %:p:s,.h$,.X123X,:s,.cpp$,.h,:s,.X123X$,.cpp,<CR>
 " source config file
 map <m-S-r> :source ~/.vimrc<CR>
 " find file
@@ -54,12 +51,17 @@ map <m-j> <C-d>
 " switch to other window
 map <m-k> <C-u>
 
-nnoremap <m-p> :call GoToFunction()<CR>
 nnoremap <m-m> :silent make<CR>
 nnoremap <m-e> :cnext<CR>
 nnoremap <m-q> :cprevious<CR>
+
+nnoremap <m-p> :call GoToFunction()<CR>
 nnoremap <m-w> :call SwitchWindow()<CR>
 nnoremap <m-r> :call SearchAndReplace()<CR>
+nnoremap <m-g> :call GrepCppProject()<CR>
+nnoremap <m-c> :call ToggleComment()<cr>
+vnoremap <m-c> :call ToggleComment()<cr>
+nnoremap <m-s> :call SaveFile()<cr>
 
 inoremap ( ()<Esc>i
 inoremap [ []<Esc>i
@@ -75,6 +77,7 @@ inoremap ' <c-r>=QuoteDelim("'")<CR>
 let s:is_cursor_left = 0
 
 function! SwitchWindow()
+    let list_of_open_window = range(1,winnr('$'))
     if s:is_cursor_left == 1
         let s:is_cursor_left = 0
         execute "normal \<c-w>l"
@@ -82,8 +85,6 @@ function! SwitchWindow()
         let s:is_cursor_left = 1
         execute "normal \<c-w>h"
     endif
-
-    echom s:is_cursor_left
 endfunction
 
 
@@ -159,6 +160,16 @@ function! SearchAndReplace()
 
 endfunction
 
+function! GrepCppProject()
+
+    call inputsave()
+    let search_for = input("Search for: ")
+    call inputrestore()
+
+    execute ":vimgrep " . search_for . " " . "*.cpp *.h"
+
+endfunction
+
 function! GoToFunction()
     call inputsave()
     let input_string = input("Go To Function: ", "", "customlist,AllFileFunctionsNames")
@@ -220,6 +231,55 @@ function! TogglePopup()
 
 endfunction
 
+let s:comment_map = { 
+    \   "c": '\/\/',
+    \   "cpp": '\/\/',
+    \   "go": '\/\/',
+    \   "java": '\/\/',
+    \   "javascript": '\/\/',
+    \   "lua": '--',
+    \   "scala": '\/\/',
+    \   "php": '\/\/',
+    \   "python": '#',
+    \   "ruby": '#',
+    \   "rust": '\/\/',
+    \   "sh": '#',
+    \   "desktop": '#',
+    \   "fstab": '#',
+    \   "conf": '#',
+    \   "profile": '#',
+    \   "bashrc": '#',
+    \   "bash_profile": '#',
+    \   "mail": '>',
+    \   "eml": '>',
+    \   "bat": 'REM',
+    \   "ahk": ';',
+    \   "vim": '"',
+    \   "tex": '%',
+    \ }
+
+function! ToggleComment()
+    if has_key(s:comment_map, &filetype)
+        let comment_leader = s:comment_map[&filetype]
+        if getline('.') =~ "^\\s*" . comment_leader . " " 
+            " Uncomment the line
+            execute "silent s/^\\(\\s*\\)" . comment_leader . " /\\1/"
+        else 
+            if getline('.') =~ "^\\s*" . comment_leader
+                " Uncomment the line
+                execute "silent s/^\\(\\s*\\)" . comment_leader . "/\\1/"
+            else
+                " Comment the line
+                execute "silent s/^\\(\\s*\\)/\\1" . comment_leader . " /"
+            end
+        end
+    else
+        echo "No comment leader found for filetype"
+    end
+endfunction
+
+
+
 function ClosePair(char)
  if getline('.')[col('.') - 1] == a:char
  return "\<Right>"
@@ -250,5 +310,40 @@ function QuoteDelim(char)
  return a:char.a:char."\<Esc>i"
  endif
 endf
+
+
+function UpdateSyntaxFile()
+
+    let curr_file = readfile(expand('%:p'))
+    let syntax_file_path = "C:\\Users\\Marko\\vimfiles\\syntax\\c.vim"
+    let syntax_file = readfile(syntax_file_path, 'b')
+
+    for line in curr_file
+        " let match = matchstr(line, '\struct\s\w\+[\n\r]')
+        let match = matchstr(line, 'struct\s\+\w\+')
+        if (!empty(match))
+            let syntax_line = syntax_file[len(syntax_file) - 1]
+            let keyword = split(match)[1]
+            let syntax_match = matchstr(syntax_line, keyword)
+
+            if (empty(syntax_match))
+                let str_to_write = "syn keyword marko_keyword " . keyword
+                call writefile([str_to_write], syntax_file_path, "a")
+            endif
+        endif
+    endfor
+
+endfunction
+
+function SaveFile()
+    let curr_file_name = expand('%:t')
+
+    let match = matchstr(curr_file_name, '\(\w\+\.cpp\|\w\+\.c\|\w\+\.h\)')
+    if (!empty(match))
+        call UpdateSyntaxFile()
+    endif
+
+    execute "silent sav %"
+endfunction
 
 
