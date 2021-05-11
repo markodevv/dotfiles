@@ -316,22 +316,25 @@ function UpdateSyntaxFile()
 
     let curr_file = readfile(expand('%:p'))
     let syntax_file_path = "C:\\Users\\Marko\\vimfiles\\syntax\\c.vim"
-    let syntax_file = readfile(syntax_file_path, 'b')
+    let syntax_file = readfile(syntax_file_path)
 
     for line in curr_file
         " let match = matchstr(line, '\struct\s\w\+[\n\r]')
         let match = matchstr(line, 'struct\s\+\w\+')
         if (!empty(match))
-            let syntax_line = syntax_file[len(syntax_file) - 1]
+            let syntax_line = syntax_file[len(syntax_file)-1]
             let keyword = split(match)[1]
             let syntax_match = matchstr(syntax_line, keyword)
 
             if (empty(syntax_match))
                 let str_to_write = "syn keyword marko_keyword " . keyword
-                call writefile([str_to_write], syntax_file_path, "a")
+                let syntax_file[len(syntax_file)-1] = join([syntax_line, keyword])
+
             endif
         endif
     endfor
+
+    call writefile(syntax_file, syntax_file_path)
 
 endfunction
 
