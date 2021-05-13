@@ -2,6 +2,7 @@
 " TODO: make vim auto add user defined struct as syntax highliting information
 
 colorscheme gruvbox
+set bg=dark
 set guioptions-=T
 set guioptions-=m
 set guioptions-=L
@@ -29,9 +30,13 @@ set undodir=~/.vim/undodir
 set undofile
 set incsearch
 set cursorline
-set guifont=Liberation_Mono:h10.9
+set guifont=Consolas\ 11.2
 
-set makeprg=build.bat
+if has('win32')
+    set makeprg=build.bat
+elseif has ('unix')
+    set makeprg=./build.sh
+endif
 
 set wildmenu
 set wildmode=longest:full,full
@@ -40,7 +45,8 @@ set wildmode=longest:full,full
 " source config file
 map <m-S-r> :source ~/.vimrc<CR>
 " find file
-map <m-f> :e 
+map <A-f> :e 
+
 " find buffer
 map <m-b> :buffer 
 " switch to other window
@@ -87,9 +93,6 @@ function! SwitchWindow()
     endif
 endfunction
 
-
-function! ToggleCompileWindow()
-endfunction
 
 function! CompileProject(directory)
 
@@ -315,7 +318,14 @@ endf
 function UpdateSyntaxFile()
 
     let curr_file = readfile(expand('%:p'))
-    let syntax_file_path = "C:\\Users\\Marko\\vimfiles\\syntax\\c.vim"
+    let syntax_file_path = ""
+    if has('unix')
+        let syntax_file_path = "/home/marko/.vim/syntax/c.vim"
+    elseif has ('win32')
+        let syntax_file_path = "C:\\Users\\Marko\\vimfiles\\syntax\\c.vim"
+    else
+        echo "OS not supported."
+    endif
     let syntax_file = readfile(syntax_file_path)
 
     for line in curr_file
@@ -347,6 +357,7 @@ function SaveFile()
     endif
 
     execute "silent sav %"
+    echo "File [" . curr_file_name . "] saved."
 endfunction
 
 
