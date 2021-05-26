@@ -1,12 +1,19 @@
 " TODO: running app
 " TODO: make vim auto add user defined struct as syntax highliting information
 
+"Full screen"
+set lines=999
+set columns=999
+
+packadd termdebug
+
 colorscheme gruvbox
 set bg=dark
 set guioptions-=T
 set guioptions-=m
 set guioptions-=L
 set guioptions-=r
+let g:termdebug_wide=1
 
 set t_Co=256
 syntax on
@@ -20,8 +27,8 @@ set tabstop=4 softtabstop=4
 set shiftwidth=4
 set backspace=2
 set expandtab
-set smartindent
-set autoindent
+set cindent
+" set autoindent
 set nu
 set nowrap
 set noswapfile
@@ -30,7 +37,7 @@ set undodir=~/.vim/undodir
 set undofile
 set incsearch
 set cursorline
-set guifont=Consolas\ 11.2
+set guifont=Consolas\ 11
 
 if has('win32')
     set makeprg=build.bat
@@ -40,12 +47,12 @@ endif
 
 set wildmenu
 set wildmode=longest:full,full
-" switch to coresponding cpp/h file
-"map <m-c> :e %:p:s,.h$,.X123X,:s,.cpp$,.h,:s,.X123X$,.cpp,<CR>
+
+set ssop=curdir,resize,winpos,winsize
 " source config file
 map <m-S-r> :source ~/.vimrc<CR>
 " find file
-map <A-f> :e 
+map <m-f> :e 
 
 " find buffer
 map <m-b> :buffer 
@@ -57,7 +64,7 @@ map <m-j> <C-d>
 " switch to other window
 map <m-k> <C-u>
 
-nnoremap <m-m> :silent make<CR>
+nnoremap <m-m> :silent make!<CR>
 nnoremap <m-e> :cnext<CR>
 nnoremap <m-q> :cprevious<CR>
 
@@ -69,21 +76,26 @@ nnoremap <m-c> :call ToggleComment()<cr>
 vnoremap <m-c> :call ToggleComment()<cr>
 nnoremap <m-s> :call SaveFile()<cr>
 
-inoremap ( ()<Esc>i
-inoremap [ []<Esc>i
 inoremap { {<CR>}<Esc>O
-autocmd Syntax html,vim inoremap < <lt>><Esc>i| inoremap > <c-r>=ClosePair('>')<CR>
-inoremap ) <c-r>=ClosePair(')')<CR>
-inoremap ] <c-r>=ClosePair(']')<CR>
-inoremap } <c-r>=CloseBracket()<CR>
-inoremap " <c-r>=QuoteDelim('"')<CR>
-inoremap ' <c-r>=QuoteDelim("'")<CR>
+" inoremap ( ()<Esc>i
+" inoremap [ []<Esc>i
+" autocmd Syntax html,vim inoremap < <lt>><Esc>i| inoremap > <c-r>=ClosePair('>')<CR>
+" inoremap ) <c-r>=ClosePair(')')<CR>
+" inoremap ] <c-r>=ClosePair(']')<CR>
+" inoremap } <c-r>=CloseBracket()<CR>
+" inoremap " <c-r>=QuoteDelim('"')<CR>
+" inoremap ' <c-r>=QuoteDelim("'")<CR>
+nnoremap <F5> :call RunDebugProgram()<CR>
+nnoremap <F6> :call StopDebugProgram()<CR>
+
+au VimEnter * !xmodmap -e 'clear Lock' -e 'keycode 0x42 = Escape'
+au VimLeave * !xmodmap -e 'clear Lock' -e 'keycode 0x42 = Caps_Lock'
+
 
 
 let s:is_cursor_left = 0
 
 function! SwitchWindow()
-    let list_of_open_window = range(1,winnr('$'))
     if s:is_cursor_left == 1
         let s:is_cursor_left = 0
         execute "normal \<c-w>l"
@@ -91,6 +103,27 @@ function! SwitchWindow()
         let s:is_cursor_left = 1
         execute "normal \<c-w>h"
     endif
+endfunction
+
+function! RunDebugProgram()
+    let win_count = winnr('$')
+
+    if (win_count > 1)
+        execute "mksession! ~/marko_session.vim"
+        execute "normal \<c-w>o"
+    endif
+
+    execute "cd ../build"
+    execute "Termdebug linux_platform"
+    execute "cd ../src/"
+    execute "Run"
+endfunction
+
+function! StopDebugProgram()
+    execute "call TermDebugSendCommand('quit')"
+    execute "call TermDebugSendCommand('y')"
+    execute "sleep 100m"
+    execute "source ~/marko_session.vim"
 endfunction
 
 
@@ -159,7 +192,11 @@ function! SearchAndReplace()
     let replace_with = input("With: ")
     call inputrestore()
 
-    execute ":%s/" . replace . "/" . replace_with . "/" . "gcI"
+    if (!empty(replace))
+        execute ":%s/" . replace . "/" . replace_with . "/" . "gcI"
+    else
+        echo "Nothing to replace"
+    endif
 
 endfunction
 
@@ -237,6 +274,7 @@ endfunction
 let s:comment_map = { 
     \   "c": '\/\/',
     \   "cpp": '\/\/',
+    \   "ds": '\/\/',
     \   "go": '\/\/',
     \   "java": '\/\/',
     \   "javascript": '\/\/',
@@ -277,7 +315,19 @@ function! ToggleComment()
             end
         end
     else
-        echo "No comment leader found for filetype"
+        let comment_leader = '\/\/'
+        if getline('.') =~ "^\\s*" . comment_leader . " " 
+            " Uncomment the line
+            execute "silent s/^\\(\\s*\\)" . comment_leader . " /\\1/"
+        else 
+            if getline('.') =~ "^\\s*" . comment_leader
+                " Uncomment the line
+                execute "silent s/^\\(\\s*\\)" . comment_leader . "/\\1/"
+            else
+                " Comment the line
+                execute "silent s/^\\(\\s*\\)/\\1" . comment_leader . " /"
+            end
+        end
     end
 endfunction
 
