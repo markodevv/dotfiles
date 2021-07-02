@@ -64,7 +64,7 @@ map <m-j> <C-d>
 " switch to other window
 map <m-k> <C-u>
 
-nnoremap <m-m> :silent make!<CR>
+nnoremap <m-m> :call CompileProjectM()<CR>
 nnoremap <m-e> :cnext<CR>
 nnoremap <m-q> :cprevious<CR>
 
@@ -74,7 +74,10 @@ nnoremap <m-r> :call SearchAndReplace()<CR>
 nnoremap <m-g> :call GrepCppProject()<CR>
 nnoremap <m-c> :call ToggleComment()<cr>
 vnoremap <m-c> :call ToggleComment()<cr>
-nnoremap <m-s> :call SaveFile()<cr>
+nnoremap <m-s> :w<CR>
+
+" Auto set syntax to C for mdesk files
+autocmd BufNewFile,BufRead *.mdesk set syntax=c
 
 inoremap { {<CR>}<Esc>O
 " inoremap ( ()<Esc>i
@@ -85,13 +88,17 @@ inoremap { {<CR>}<Esc>O
 " inoremap } <c-r>=CloseBracket()<CR>
 " inoremap " <c-r>=QuoteDelim('"')<CR>
 " inoremap ' <c-r>=QuoteDelim("'")<CR>
-nnoremap <F5> :call RunDebugProgram()<CR>
+nnoremap <F5> :call RunDebugProgram(0)<CR>
+nnoremap <S-F6> :call RunDebugProgram(1)<CR>
 nnoremap <F6> :call StopDebugProgram()<CR>
 
 au VimEnter * !xmodmap -e 'clear Lock' -e 'keycode 0x42 = Escape'
 au VimLeave * !xmodmap -e 'clear Lock' -e 'keycode 0x42 = Caps_Lock'
 
-
+function CompileProjectM()
+    exe ":!./metadesk"
+    exe ":silent make!"
+endfunction
 
 let s:is_cursor_left = 0
 
@@ -105,18 +112,24 @@ function! SwitchWindow()
     endif
 endfunction
 
-function! RunDebugProgram()
-    let win_count = winnr('$')
+function! RunDebugProgram(debug)
+    if (a:debug)
+        let win_count = winnr('$')
 
-    if (win_count > 1)
-        execute "mksession! ~/marko_session.vim"
-        execute "normal \<c-w>o"
+        if (win_count > 1)
+            execute "mksession! ~/marko_session.vim"
+            execute "normal \<c-w>o"
+        endif
+
+        execute "cd ../build"
+        execute "Termdebug linux_platform"
+        execute "cd ../src/"
+        execute "Run"
+    else
+        execute "cd ../build"
+        execute "!./linux_platform"
+        execute "cd ../src/"
     endif
-
-    execute "cd ../build"
-    execute "Termdebug linux_platform"
-    execute "cd ../src/"
-    execute "Run"
 endfunction
 
 function! StopDebugProgram()
@@ -155,6 +168,10 @@ function! CompileProject(directory)
         endif
     endfor
 
+endfunction
+
+function! BindCapslockToEscape()
+    execute "!xmodmap -e 'clear Lock' -e 'keycode 0x42 = Escape'"
 endfunction
 
 " function search regex:\v^(<\w+>\s*)\(
@@ -399,15 +416,14 @@ function UpdateSyntaxFile()
 endfunction
 
 function SaveFile()
-    let curr_file_name = expand('%:t')
+    " let curr_file_name = expand('%:t')
+" 
+    " let match = matchstr(curr_file_name, '\(\w\+\.cpp\|\w\+\.c\|\w\+\.h\)')
+    " if (!empty(match))
+        " call UpdateSyntaxFile()
+    " endif
 
-    let match = matchstr(curr_file_name, '\(\w\+\.cpp\|\w\+\.c\|\w\+\.h\)')
-    if (!empty(match))
-        call UpdateSyntaxFile()
-    endif
-
-    execute "silent sav %"
-    echo "File [" . curr_file_name . "] saved."
 endfunction
+
 
 
