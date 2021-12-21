@@ -27,7 +27,8 @@ opt.shiftwidth = 4
 opt.backspace = {'indent', 'eol', 'start'}
 opt.expandtab = true
 -- Indenting
--- opt.autoindent ...
+opt.autoindent = true
+opt.smartindent = true
 opt.cindent = true
 -- Wraping
 opt.wrap = true
@@ -78,8 +79,8 @@ map('n', '<C-j>', '<C-w>j', map_opts)
 map('n', '<C-k>', '<C-w>k', map_opts)
 
 -- Replace
-map('v', '<C-r>', ':call ReplaceInRange()<CR>', map_opts)
-map('n', '<C-r>', ':call ReplaceInBufferYN()<CR>', map_opts)
+-- map('v', '<C-r>', ':call ReplaceInRange()<CR>', map_opts)
+-- map('n', '<C-r>', ':call ReplaceInBufferYN()<CR>', map_opts)
 
 -- Save file
 map('n', '<m-s>', ':w<CR>', map_opts)
@@ -87,14 +88,16 @@ map('n', '<m-s>', ':w<CR>', map_opts)
 -- Goto config file
 map('n', '<F8>', ':e '..config_filepath..'<CR>', map_opts)
 
+-- Goto LSP settings file
+map('n', '<F9>', ':e ~/AppData/Local/nvim/lua/lsp_settings.lua<CR>', map_opts)
+
 -- Build/Run
 map('n', '<m-m>', ':make<CR>', map_opts)
-
 
 -- Vimscript code
 vim.api.nvim_exec([[
 
-colorscheme gruvbox
+colorscheme simple
 set wildmode=longest:full,full
 set completeopt-=preview
 "set nu
@@ -130,7 +133,7 @@ fun! NewlineAndIndent()
     let col = col('.')
 
     if line[col - 2] == '{' && line[col - 1] == '}'
-        return "\n\n\<up>    "
+        return "\<return>\<up>\<esc>o"
     endif
 
     return "\n"
