@@ -261,7 +261,7 @@ hi def link cUserFunction cFunction
 hi def link cUserFunctionPointer cFunction
 
 " Delimiters
-syn match cDelimiter    "[();\\]"
+"syn match cDelimiter    "[();\\]"
 " foldmethod=syntax fix, courtesy of Ivan Freitas
 syn match cBraces display "[{}]"
 
@@ -276,97 +276,3 @@ hi def link cDelimiter Delimiter
 hi def link cBraces Delimiter
 hi def link cBoolean Boolean
 
-
-syn keyword marko_note NOTE containedin=.*Comment,vimCommentTitle,cCommentL
-syn keyword marko_todo TODO containedin=.*Comment,vimCommentTitle,cCommentL
-
-hi marko_note guifg=Green4
-hi marko_todo guifg=Red
-
-hi def link marko_keyword Type
-syn keyword marko_keyword i32 i64 f32 f64 i8 i16 sizet b8 u8 u16 u32 u64 global_variable internal local_persist
-syn keyword marko_keyword ButtonState
-syn keyword marko_keyword MouseInput
-syn keyword marko_keyword GameInput
-syn keyword marko_keyword FileResult
-syn keyword marko_keyword Assets
-syn keyword marko_keyword Platform
-syn keyword marko_keyword DebugState
-syn keyword marko_keyword GameMemory
-syn keyword marko_keyword GameSoundBuffer
-syn keyword marko_keyword Assets
-syn keyword marko_keyword Transform
-syn keyword marko_keyword Render
-syn keyword marko_keyword Entity
-syn keyword marko_keyword TranState
-syn keyword marko_keyword GameState
-syn keyword marko_keyword vec2
-syn keyword marko_keyword vec3
-syn keyword marko_keyword vec4
-syn keyword marko_keyword mat4
-syn keyword marko_keyword Color
-syn keyword marko_keyword Material
-syn keyword marko_keyword Light
-syn keyword marko_keyword VertexData
-syn keyword marko_keyword Camera
-syn keyword marko_keyword Sprite
-syn keyword marko_keyword SubSprite
-syn keyword marko_keyword Mesh
-syn keyword marko_keyword Model
-syn keyword marko_keyword Renderer
-syn keyword marko_keyword RenderEntryHeader
-syn keyword marko_keyword RenderSetup
-syn keyword marko_keyword TexturedQuadsEntry
-syn keyword marko_keyword RenderGroup
-syn keyword marko_keyword Assets
-syn keyword marko_keyword Renderer
-syn keyword marko_keyword Assets
-syn keyword marko_keyword InteractingItem
-syn keyword marko_keyword HotItem
-syn keyword marko_keyword DebugMenu
-syn keyword marko_keyword DebugState
-syn keyword marko_keyword ButtonState
-syn keyword marko_keyword MouseInput
-syn keyword marko_keyword GameInput
-syn keyword marko_keyword FileResult
-syn keyword marko_keyword Assets
-syn keyword marko_keyword Platform
-syn keyword marko_keyword DebugState
-syn keyword marko_keyword GameMemory
-syn keyword marko_keyword GameSoundBuffer
-syn keyword marko_keyword Assets
-syn keyword marko_keyword Transform
-syn keyword marko_keyword Render
-syn keyword marko_keyword Entity
-syn keyword marko_keyword TranState
-syn keyword marko_keyword GameState
-syn keyword marko_keyword ButtonState
-syn keyword marko_keyword MouseInput
-syn keyword marko_keyword GameInput
-syn keyword marko_keyword FileResult
-syn keyword marko_keyword Assets
-syn keyword marko_keyword Platform
-syn keyword marko_keyword DebugState
-syn keyword marko_keyword GameMemory
-syn keyword marko_keyword GameSoundBuffer
-syn keyword marko_keyword Assets
-syn keyword marko_keyword Transform
-syn keyword marko_keyword Render
-syn keyword marko_keyword Entity
-syn keyword marko_keyword TranState
-syn keyword marko_keyword GameState
-syn keyword marko_keyword ButtonState
-syn keyword marko_keyword MouseInput
-syn keyword marko_keyword GameInput
-syn keyword marko_keyword FileResult
-syn keyword marko_keyword Assets
-syn keyword marko_keyword Platform
-syn keyword marko_keyword DebugState
-syn keyword marko_keyword GameMemory
-syn keyword marko_keyword GameSoundBuffer
-syn keyword marko_keyword Assets
-syn keyword marko_keyword Transform
-syn keyword marko_keyword Render
-syn keyword marko_keyword Entity
-syn keyword marko_keyword TranState
-syn keyword marko_keyword GameState
