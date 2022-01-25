@@ -1,16 +1,8 @@
-local opt = vim.opt
-local glo = vim.go
-local buf = vim.bo
-local map = vim.api.nvim_set_keymap
+-- TODO
+-- C syntax higlighting?
+--
 
 local plug = vim.fn['plug#']
-
--- TODO 
--- Lua LSP
--- search word under cursor
--- C syntax higlighting?
--- Goto function
-
 vim.call('plug#begin', '~/.config/nvim/plugged')
 
 plug 'neovim/nvim-lspconfig'
@@ -20,6 +12,10 @@ vim.call('plug#end')
 require 'utilities'
 require 'lsp_settings'
 
+local opt = vim.opt
+local map = vim.api.nvim_set_keymap
+
+
 opt.bg = 'dark'
 -- Font
 opt.guifont='Fantasque Sans Mono:h16:r'
@@ -28,7 +24,7 @@ opt.guifont='Fantasque Sans Mono:h16:r'
 opt.showmatch = true
 opt.errorbells = false
 opt.belloff = 'all'
-opt.tabstop = 4 
+opt.tabstop = 4
 opt.softtabstop = 4
 opt.shiftwidth = 4
 opt.backspace = {'indent', 'eol', 'start'}
@@ -51,7 +47,7 @@ opt.cmdheight = 1
 -- opt.showmode = false
 --
 -- Build file
-opt.makeprg = 'build.bat'
+opt.makeprg = 'sh build.sh'
 
 local config_filepath = '~/AppData/local/nvim/init.lua'
 
@@ -72,12 +68,13 @@ map('n', '<m-j>', '<C-d>', map_opts)
 map('n', '<m-k>', '<C-u>', map_opts)
 
 -- Open file
-map('n', '<C-p>', ':e ', map_opts)
+map('n', '<m-f>', ':e ', map_opts)
 
 -- Source config
 map('n', '<F5>', ':source '..config_filepath..'<CR>', map_opts)
 
 -- Next/previous error
+-- TODO
 map('n', '<m-e>', ':cnext<CR>', map_opts)
 map('n', '<m-q>', ':cprevious<CR>', map_opts)
 
@@ -103,8 +100,33 @@ map('n', '<F8>', ':e '..config_filepath..'<CR>', map_opts)
 -- Goto LSP settings file
 map('n', '<F9>', ':e ~/AppData/Local/nvim/lua/lsp_settings.lua<CR>', map_opts)
 
+-- Search word under cursor
+map('n', '<C-/>', '*', map_opts)
+
 -- Build/Run
 map('n', '<m-m>', ':make<CR>', map_opts)
+
+
+-- TODO
+function _G.C_get_functions_current_file(input, cmd, curs)
+    local out = {}
+    local file = vim.fn.readfile(vim.fn.expand("%:p"))
+    print("Called!")
+    for i,line in ipairs(file) do
+        local match = vim.fn.matchstr(line, '\bv^(<\bw+>\bs*)\b(')
+        if match ~= nil then
+                if vim.fn.stridx(match, input) ~= -1 then
+                    table.insert(out, match)
+                end
+            end
+        end
+    return out
+end
+
+function _G.C_goto_function_current_file()
+    local input = vim.fn.input("Goto Function: ", "", "customlist,v:lua.C_get_functions_current_file")
+end
+--------
 
 -- Vimscript code
 vim.api.nvim_exec([[
@@ -115,6 +137,7 @@ set completeopt-=preview
 
 set errorformat+=%f(%l:%c)\ %m
 nnoremap <m-g> :call GrepCppProject()<CR>
+nnoremap <m-p> :call GoToFunction()<CR>
 
 inoremap { <c-r>=InsertPair('{', '}')<CR>
 inoremap ( <c-r>=InsertPair('(', ')')<CR>
@@ -130,6 +153,7 @@ inoremap " <c-r>=InsertQuotes('"')<CR>
 inoremap ' <c-r>=InsertQuotes("'")<CR>
 
 inoremap <return> <c-r>=NewlineAndIndent()<CR>
+
 
 " Window settings
 let g:neovide_cursor_animation_length=0.09
@@ -230,7 +254,9 @@ function! GrepCppProject()
     let search_for = input("Search for: ")
     call inputrestore()
 
-    execute ":vimgrep " . search_for . " " . "*.cpp *.h"
+    if (len(search_for) > 0)
+        execute ":vimgrep " . search_for . " " . "*.cpp *.c *.h *.hpp"
+    endif
 
 endfunction
 
@@ -249,5 +275,46 @@ fun! RenameFile()
         execute "silent !del /f ".old_file
     endif
 endf
+
+function! GetFunctionLineNumber(function_name)
+    let file = readfile(expand("%:p")) " read current file
+    let line_num = 1
+    for line in file
+        let match = matchstr(line, a:function_name)
+        if (!empty(match))
+            return line_num
+        endif
+        let line_num += 1
+    endfor
+    return -1
+endfunction
+
+" function search regex:\v^(<\w+>\s*)\(
+function! AllFileFunctionsNames(input, cmd, curs)
+    let out = []
+    let file = readfile(expand("%:p")) " read current file
+    for line in file
+        let match = matchstr(line, '^\(\<\w\+\>\s*\)\{2}(')
+        if (!empty(match))
+            if (stridx(match, a:input) != -1)
+                call add(out, match)
+            endif
+        endif
+    endfor
+    return out
+endfunction
+
+function! GoToFunction()
+    call inputsave()
+    let input_string = input("Go To Function: ", "", "customlist,AllFileFunctionsNames")
+    call inputrestore()
+
+    let function_line_number = GetFunctionLineNumber(input_string)
+    if (function_line_number != -1)
+        exe function_line_number
+    endif
+
+endfunction
+
 ]], false)
 -- Vimscript code end
