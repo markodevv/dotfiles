@@ -5,17 +5,24 @@ local map = vim.api.nvim_set_keymap
 
 local plug = vim.fn['plug#']
 
+-- TODO 
+-- Lua LSP
+-- search word under cursor
+-- C syntax higlighting?
+-- Goto function
+
 vim.call('plug#begin', '~/.config/nvim/plugged')
 
 plug 'neovim/nvim-lspconfig'
 
 vim.call('plug#end')
 
+require 'utilities'
 require 'lsp_settings'
 
 opt.bg = 'dark'
 -- Font
---opt.guifont=Consolas\ 11
+opt.guifont='Fantasque Sans Mono:h16:r'
 --
 --opt.syntax = 'on'
 opt.showmatch = true
@@ -42,7 +49,7 @@ opt.wildmenu = true
 opt.cmdheight = 1
 -- Show -- INSERT -- etc..
 -- opt.showmode = false
-
+--
 -- Build file
 opt.makeprg = 'build.bat'
 
@@ -50,6 +57,8 @@ local config_filepath = '~/AppData/local/nvim/init.lua'
 
 -- Mappings
 local map_opts = {noremap = true}
+local exp_map_opts = {expr = true, noremap = true}
+map('n', 'cd', 'v:lua.cd_current_file()', exp_map_opts)
 
 -- Buffer
 map('n', '<m-b>', ':buffer ', map_opts)
@@ -78,6 +87,9 @@ map('n', '<C-h>', '<C-w>h', map_opts)
 map('n', '<C-j>', '<C-w>j', map_opts)
 map('n', '<C-k>', '<C-w>k', map_opts)
 
+-- Redo
+map('n', '<C-k>', '<C-w>k', map_opts)
+
 -- Replace
 -- map('v', '<C-r>', ':call ReplaceInRange()<CR>', map_opts)
 -- map('n', '<C-r>', ':call ReplaceInBufferYN()<CR>', map_opts)
@@ -100,7 +112,6 @@ vim.api.nvim_exec([[
 colorscheme simple
 set wildmode=longest:full,full
 set completeopt-=preview
-"set nu
 
 set errorformat+=%f(%l:%c)\ %m
 nnoremap <m-g> :call GrepCppProject()<CR>
@@ -188,7 +199,6 @@ fun! QuoteDelim(char)
 endf
 
 
-
 fun! ReplaceInRange() range
     call inputsave()
     let replace = input("Replace: ")
@@ -223,7 +233,6 @@ function! GrepCppProject()
     execute ":vimgrep " . search_for . " " . "*.cpp *.h"
 
 endfunction
-
 
 nnoremap <F3> :call RenameFile()<CR>
 fun! RenameFile()

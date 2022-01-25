@@ -1,9 +1,6 @@
+local util = require 'utilities'
 local lsp = require 'lspconfig'
 local configs = require 'lspconfig/configs'
-
-local function esc(str)
-  return vim.api.nvim_replace_termcodes(str, true, false, true)
-end
 
 
 function _G.complete()
@@ -18,6 +15,7 @@ function _G.show_completion_on_dot()
     return esc('.<c-x><c-o>')
 end
 
+
 configs.ols = {
     default_config = {
         cmd = {'ols'},
@@ -30,15 +28,13 @@ configs.clangd = {
     default_config = {
         cmd = {'clangd'},
         filetypes = {"cpp", "c", "hpp", "h"},
-        root_dir = require'lspconfig/util'.root_pattern('compile_commands.json'),
+        root_dir = require'lspconfig/util'.root_pattern('compile_commands.json', 'compile_flags.txt'),
     }
 }
 
-local lua_root_dir = "C:\\Program Files\\LSP\\lua"
-
 configs.sumneko_lua = {
     default_config = {
-        cmd = { "lua-language-server", "-E", lua_root_dir .. "\\main.lua" },
+        cmd = {'lua-language-server'},
         filetypes = {"lua"},
         root_dir = require'lspconfig/util'.root_pattern('.git') or bufdir,
 	settings = {
@@ -47,7 +43,7 @@ configs.sumneko_lua = {
                 -- Tell the language server which version of Lua you're using (most likely LuaJIT in the case of Neovim)
                 version = 'LuaJIT',
                 -- Setup your lua path
-                path = runtime_path,
+                path = "C:\\Program Files\\LSP\\lua",
             },
             diagnostics = {
                 -- Get the language server to recognize the `vim` global
@@ -90,7 +86,7 @@ local on_attach = function(client, bufnr)
   buf_set_keymap('n', '<space>wr', '<cmd>lua vim.lsp.buf.remove_workspace_folder()<CR>', opts)
   buf_set_keymap('n', '<space>wl', '<cmd>lua print(vim.inspect(vim.lsp.buf.list_workspace_folders()))<CR>', opts)
   buf_set_keymap('n', '<space>D', '<cmd>lua vim.lsp.buf.type_definition()<CR>', opts)
-  buf_set_keymap('n', '<C-r><C-r>', '<cmd>lua vim.lsp.buf.rename()<CR>', opts)
+  buf_set_keymap('n', '<C-S-r>', '<cmd>lua vim.lsp.buf.rename()<CR>', opts)
   buf_set_keymap('n', '<space>ca', '<cmd>lua vim.lsp.buf.code_action()<CR>', opts)
   buf_set_keymap('n', 'gr', '<cmd>lua vim.lsp.buf.references()<CR>', opts)
   buf_set_keymap('n', '<space>e', '<cmd>lua vim.lsp.diagnostic.show_line_diagnostics()<CR>', opts)
@@ -101,8 +97,20 @@ local on_attach = function(client, bufnr)
 
 end
 
-lsp.set_log_level = "debug"
+local lsp_loaded = false;
 
-lsp.ols.setup{on_attach = on_attach}
-lsp.clangd.setup{on_attach = on_attach}
-lsp.sumneko_lua.setup{on_attach = on_attach}
+local function load_lsp()
+    if lsp_loaded == false then
+        lsp.set_log_level = "debug"
+        lsp.ols.setup{on_attach = on_attach}
+        lsp.clangd.setup{on_attach = on_attach}
+        lsp.sumneko_lua.setup{on_attach = on_attach}
+        lsp_loaded = true
+    end
+end
+
+load_lsp()
+
+
+-- TODO not working
+--lsp.sumneko_lua.setup{on_attach = on_attach}
