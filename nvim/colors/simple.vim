@@ -14,7 +14,7 @@ let g:colors_name = "corporation_modified"
 "hi CTagsMember -- no settings --
 "hi CTagsGlobalConstant -- no settings --
 "hi Ignore -- no settings --
-hi Normal guifg=#e0e2e4 guibg=#282b2e guisp=#282b2e gui=NONE ctermfg=254 ctermbg=236 cterm=NONE
+hi Normal guifg=#e0e2e4 guibg=#1c1c1c guisp=#1c1c1c gui=NONE ctermfg=254 ctermbg=236 cterm=NONE
 "hi CTagsImport -- no settings --
 "hi CTagsGlobalVariable -- no settings --
 "hi EnumerationValue -- no settings --
@@ -100,4 +100,4 @@ hi DiffAdd guifg=NONE guibg=#193224 guisp=#193224 gui=NONE ctermfg=NONE ctermbg=
 hi TabLine guifg=#192224 guibg=#5E6C70 guisp=#5E6C70 gui=bold ctermfg=235 ctermbg=66 cterm=bold
 hi cursorim guifg=#192224 guibg=#536991 guisp=#536991 gui=NONE ctermfg=235 ctermbg=60 cterm=NONE
 " C stuff
-hi cFunction guifg=#799afc guibg=NONE guisp=NONE gui=bold ctermfg=214 ctermbg=NONE cterm=bold
+hi cFunction guifg=#8CBBAD guibg=NONE guisp=NONE gui=bold ctermfg=214 ctermbg=NONE cterm=bold

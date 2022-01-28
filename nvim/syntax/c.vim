@@ -63,8 +63,6 @@ syn keyword cAnsiFunction	mbtowc mblen lldiv
 syn keyword cAnsiFunction	ldiv div llabs
 syn keyword cAnsiFunction	labs abs qsort
 syn keyword cAnsiFunction	bsearch system getenv
-syn keyword cAnsiFunction	exit atexit abort
-syn keyword cAnsiFunction	realloc malloc free
 syn keyword cAnsiFunction	calloc srand rand
 syn keyword cAnsiFunction	strtoull strtoul strtoll
 syn keyword cAnsiFunction	strtol strtold strtof
@@ -252,6 +250,10 @@ syn match cOperator "&&\|||"
 " Preprocs
 syn keyword cDefined defined contained containedin=cDefine
 hi def link cDefined cDefine
+
+" Types
+syn keyword cUserType u8 u16 u32 u64 i8 i16 i32 i64 f32 f64
+hi def link cUserType cFunction
 
 " Functions
 syn match cUserFunction "\<\h\w*\>\(\s\|\n\)*("me=e-1 contains=cType,cDelimiter,cDefine
