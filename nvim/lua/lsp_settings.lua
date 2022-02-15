@@ -1,7 +1,11 @@
 local util = require 'utilities'
 local lsp = require 'lspconfig'
 local configs = require 'lspconfig/configs'
+local lsputil = require'lspconfig/util'
 
+function _G.esc(str)
+  return vim.api.nvim_replace_termcodes(str, true, false, true)
+end
 
 function _G.complete()
     if vim.fn.pumvisible() > 0 then
@@ -11,9 +15,6 @@ function _G.complete()
     end
 end
 
-function _G.show_completion_on_dot() 
-    return esc('.<c-x><c-o>')
-end
 
 
 configs.ols = {
@@ -24,11 +25,12 @@ configs.ols = {
     }
 }
 
+
 configs.clangd = {
     default_config = {
         cmd = {'clangd'},
         filetypes = {"cpp", "c", "hpp", "h"},
-        root_dir = require'lspconfig/util'.root_pattern('compile_commands.json', 'compile_flags.txt'),
+        root_dir = lsputil.root_pattern('compile_commands.json', 'compile_flags.txt'),
     }
 }
 
@@ -36,7 +38,7 @@ configs.sumneko_lua = {
     default_config = {
         cmd = {'lua-language-server'},
         filetypes = {"lua"},
-        root_dir = require'lspconfig/util'.root_pattern('.git') or bufdir,
+        root_dir = lsputil.root_pattern('.git') or bufdir,
 	settings = {
 		Lua = {
             runtime = {
@@ -72,7 +74,6 @@ local on_attach = function(client, bufnr)
   buf_set_option('omnifunc', 'v:lua.vim.lsp.omnifunc')
   -- Mappings.
   buf_set_keymap('i', '<Tab>', 'v:lua.complete()', {expr = true, noremap = true})
-  -- buf_set_keymap('i', '.', 'v:lua.show_completion_on_dot()', {expr = true, noremap = true})
 
   -- See `:help vim.lsp.*` for documentation on any of the below functions
   local opts = { noremap=true, silent=true }
@@ -111,6 +112,3 @@ end
 
 load_lsp()
 
-
--- TODO not working
---lsp.sumneko_lua.setup{on_attach = on_attach}

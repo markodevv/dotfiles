@@ -15,6 +15,7 @@ require 'lsp_settings'
 local opt = vim.opt
 local map = vim.api.nvim_set_keymap
 
+local nvim_dir = 'C:/Users/Marko/AppData/Local/nvim'
 
 opt.bg = 'dark'
 -- Font
@@ -37,19 +38,23 @@ opt.cindent = true
 opt.wrap = true
 opt.sidescroll = 5
 
+-- Undo
+opt.undofile = true
+opt.undodir = nvim_dir .. '/undo'
+
 opt.swapfile = true
-opt.backup = true
+opt.backup = false
 opt.incsearch = true
 opt.cursorline = true
 opt.wildmenu = true
 opt.cmdheight = 1
+
 -- Show -- INSERT -- etc..
 -- opt.showmode = false
 --
 -- Build file
-opt.makeprg = 'sh build.sh'
+opt.makeprg = 'sh build.sh -debug'
 
-local config_filepath = '~/AppData/local/nvim/init.lua'
 
 -- Mappings
 local map_opts = {noremap = true}
@@ -71,7 +76,7 @@ map('n', '<m-k>', '<C-u>', map_opts)
 map('n', '<m-f>', ':e ', map_opts)
 
 -- Source config
-map('n', '<F5>', ':source '..config_filepath..'<CR>', map_opts)
+map('n', '<F5>', ':source ' .. nvim_dir .. '/init.lua<CR>', map_opts)
 
 -- Next/previous error
 -- TODO
@@ -95,7 +100,7 @@ map('n', '<C-k>', '<C-w>k', map_opts)
 map('n', '<m-s>', ':w<CR>', map_opts)
 
 -- Goto config file
-map('n', '<F8>', ':e '..config_filepath..'<CR>', map_opts)
+map('n', '<F8>', ':e ' .. nvim_dir .. '/init.lua<CR>', map_opts)
 
 -- Goto LSP settings file
 map('n', '<F9>', ':e ~/AppData/Local/nvim/lua/lsp_settings.lua<CR>', map_opts)
@@ -103,29 +108,7 @@ map('n', '<F9>', ':e ~/AppData/Local/nvim/lua/lsp_settings.lua<CR>', map_opts)
 -- Search word under cursor
 map('n', '<C-/>', '*', map_opts)
 
--- Build/Run
-map('n', '<m-m>', ':make<CR>', map_opts)
 
-
--- TODO
-function _G.C_get_functions_current_file(input, cmd, curs)
-    local out = {}
-    local file = vim.fn.readfile(vim.fn.expand("%:p"))
-    print("Called!")
-    for i,line in ipairs(file) do
-        local match = vim.fn.matchstr(line, '\bv^(<\bw+>\bs*)\b(')
-        if match ~= nil then
-                if vim.fn.stridx(match, input) ~= -1 then
-                    table.insert(out, match)
-                end
-            end
-        end
-    return out
-end
-
-function _G.C_goto_function_current_file()
-    local input = vim.fn.input("Goto Function: ", "", "customlist,v:lua.C_get_functions_current_file")
-end
 --------
 
 -- Vimscript code
@@ -139,6 +122,11 @@ set errorformat+=%f(%l:%c)\ %m
 nnoremap <m-g> :call GrepCppProject()<CR>
 nnoremap <m-p> :call GoToFunction()<CR>
 nnoremap <C-F5> :call PushCommit()<CR>
+
+nnoremap <m-m> :call BuildProject()<CR>
+
+nnoremap <C-d>d :call DeleteCurrentFile()<CR>
+nnoremap <C-d><C-d> :call DeleteFile()<CR>
 
 inoremap { <c-r>=InsertPair('{', '}')<CR>
 inoremap ( <c-r>=InsertPair('(', ')')<CR>
@@ -155,6 +143,7 @@ inoremap ' <c-r>=InsertQuotes("'")<CR>
 
 inoremap <return> <c-r>=NewlineAndIndent()<CR>
 
+set directory^=$HOME/.nvim_swap/
 
 " Window settings
 let g:neovide_cursor_animation_length=0.09
@@ -281,8 +270,8 @@ function! GetFunctionLineNumber(function_name)
     let file = readfile(expand("%:p")) " read current file
     let line_num = 1
     for line in file
-        let match = matchstr(line, a:function_name)
-        if (!empty(match))
+        let match = stridx(line, a:function_name)
+        if (match != -1)
             return line_num
         endif
         let line_num += 1
@@ -290,30 +279,63 @@ function! GetFunctionLineNumber(function_name)
     return -1
 endfunction
 
-" function search regex:\v^(<\w+>\s*)\(
-function! AllFileFunctionsNames(input, cmd, curs)
+
+"\v^(\S+\s*){1,5}\(.*\n
+function! GetCFunctionNamesInFile(input, cmd, curs)
     let out = []
     let file = readfile(expand("%:p")) " read current file
+
     for line in file
-        let match = matchstr(line, '^\(\<\w\+\>\s*\)\{2}(')
+        let match = matchstr(line, '^\(\S\+\s*\)\{1,5}(.*$')
+
         if (!empty(match))
-            if (stridx(match, a:input) != -1)
+            if (stridx(line, a:input) != -1)
                 call add(out, match)
             endif
         endif
     endfor
+
     return out
 endfunction
 
+
 function! GoToFunction()
     call inputsave()
-    let input_string = input("Go To Function: ", "", "customlist,AllFileFunctionsNames")
+    let input_string = input("Go To Function: ", "", "customlist,GetCFunctionNamesInFile")
     call inputrestore()
 
-    let function_line_number = GetFunctionLineNumber(input_string)
-    if (function_line_number != -1)
-        exe function_line_number
+    let line_num = GetFunctionLineNumber(input_string)
+    if (line_num != -1 && line_num != 1)
+        exe ":" . line_num
     endif
+
+endfunction
+
+function! DeleteCurrentFile()
+    let filename = expand('%')
+    call inputsave()
+    let input_string = input("Delete file [" . filename . "] (Y/N)?: ", "")
+    call inputrestore()
+
+    if (input_string == "Y" || input_string == "y")
+        execute "call delete(filename) | bdelete!"
+    endif
+endfunction
+
+function! DeleteFile()
+    call inputsave()
+    let filename = input("File: ", "", "file")
+    call inputrestore()
+
+    if (!empty(filename))
+        call inputsave()
+        let input_string = input("Delete file [" . filename . "] (Y/N)?: ", "")
+        call inputrestore()
+        if (input_string == "Y" || input_string == "y")
+            execute "call delete(filename) | bdelete!"
+        endif
+    endif
+
 
 endfunction
 
@@ -325,6 +347,12 @@ function! PushCommit()
     execute "!git add *" 
     execute "!git commit -m " . "\"" input_string "\""
     execute "!git push"
+endfunction
+
+function! BuildProject()
+    execute "cd ../"
+    execute "make"
+    execute "cd src/"
 endfunction
 
 ]], false)
