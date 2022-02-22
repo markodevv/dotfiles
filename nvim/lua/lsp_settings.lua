@@ -1,5 +1,4 @@
-local util = require 'utilities'
-local lsp = require 'lspconfig'
+local lsp     = require 'lspconfig'
 local configs = require 'lspconfig/configs'
 local lsputil = require'lspconfig/util'
 
@@ -15,6 +14,13 @@ function _G.complete()
     end
 end
 
+function _G.signature_help()
+    if vim.fn.pumvisible() > 0 then
+        return esc('<C-n>')
+    else
+        return esc('<c-x><c-o>')
+    end
+end
 
 
 configs.ols = {
@@ -104,7 +110,7 @@ local function load_lsp()
     if lsp_loaded == false then
         lsp.set_log_level = "debug"
         lsp.ols.setup{on_attach = on_attach}
-        lsp.clangd.setup{on_attach = on_attach}
+        --lsp.clangd.setup{on_attach = on_attach}
         lsp.sumneko_lua.setup{on_attach = on_attach}
         lsp_loaded = true
     end

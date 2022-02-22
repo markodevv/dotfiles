@@ -19,7 +19,7 @@ local nvim_dir = 'C:/Users/Marko/AppData/Local/nvim'
 
 opt.bg = 'dark'
 -- Font
-opt.guifont='Fantasque Sans Mono:h16:r'
+opt.guifont='LiberationSans-Regular:h14'
 --
 --opt.syntax = 'on'
 opt.showmatch = true
@@ -36,6 +36,7 @@ opt.smartindent = true
 opt.cindent = true
 -- Wraping
 opt.wrap = true
+opt.linebreak = true
 opt.sidescroll = 5
 
 -- Undo
@@ -52,14 +53,14 @@ opt.cmdheight = 1
 -- Show -- INSERT -- etc..
 -- opt.showmode = false
 --
--- Build file
-opt.makeprg = 'sh build.sh -debug'
+-- Build command
+opt.makeprg = 'sh ../build.sh -debug'
 
 
 -- Mappings
 local map_opts = {noremap = true}
-local exp_map_opts = {expr = true, noremap = true}
-map('n', 'cd', 'v:lua.cd_current_file()', exp_map_opts)
+local expr_opts = {expr = true, noremap = true}
+map('n', 'cd', 'v:lua.cd_current_file()', expr_opts)
 
 -- Buffer
 map('n', '<m-b>', ':buffer ', map_opts)
@@ -76,7 +77,7 @@ map('n', '<m-k>', '<C-u>', map_opts)
 map('n', '<m-f>', ':e ', map_opts)
 
 -- Source config
-map('n', '<F5>', ':source ' .. nvim_dir .. '/init.lua<CR>', map_opts)
+map('n', '<F1>', ':source ' .. nvim_dir .. '/init.lua<CR>', map_opts)
 
 -- Next/previous error
 -- TODO
@@ -109,6 +110,46 @@ map('n', '<F9>', ':e ~/AppData/Local/nvim/lua/lsp_settings.lua<CR>', map_opts)
 map('n', '<C-/>', '*', map_opts)
 
 
+function run_program()
+    vim.cmd([[
+    execute "cd ../build"
+    execute "!game.exe"
+    execute "cd ../src"
+    ]])
+end
+
+local function is_empty(str)
+    return str == '' or str == nil
+end
+
+function esc(str)
+  return vim.api.nvim_replace_termcodes(str, true, false, true)
+end
+
+function replace_in_range()
+
+    local replace = vim.fn.input("Replace: ")
+
+    local with = vim.fn.input("With: ")
+
+    local s = vim.api.nvim_buf_get_mark(0, '<')[1]
+    local e = vim.api.nvim_buf_get_mark(0, '>')[1]
+
+    --local command = [[":" .. start_range .. "," .. end_range .. "s/" .. replace .. "/" .. with .. "/g"]]
+    print(s)
+    print(e)
+
+    vim.api.nvim_input("<esc>")
+    local command = esc([[ ":"..s..","..e.."s/"..replace.."/"..with.."/" ]])
+
+    if is_empty(replace) == false then
+        vim.cmd(command)
+    end
+end
+
+
+map('n', '<F5>', 'v:lua.run_program()', expr_opts)
+map('v', '<C-S-r>', 'v:lua.replace_in_range()', map_opts)
 --------
 
 -- Vimscript code
@@ -212,17 +253,6 @@ fun! QuoteDelim(char)
     endif
 endf
 
-
-fun! ReplaceInRange() range
-    call inputsave()
-    let replace = input("Replace: ")
-    let with = input("With: ")
-    call inputrestore()
-
-    if (!empty(replace)) 
-        execute a:firstline.",".a:lastline."s/".replace."/".with."/g"
-    endif
-endf
 
 fun! ReplaceInBufferYN()
     call inputsave()
@@ -336,7 +366,6 @@ function! DeleteFile()
         endif
     endif
 
-
 endfunction
 
 function! PushCommit()
@@ -350,9 +379,8 @@ function! PushCommit()
 endfunction
 
 function! BuildProject()
-    execute "cd ../"
-    execute "make"
-    execute "cd src/"
+    execute "cope"
+    execute "silent make"
 endfunction
 
 ]], false)
