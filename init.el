@@ -5,7 +5,7 @@
    '("org" . "http://orgmode.org/elpa/"))
 
 (setq package-list
-    '(corfu))
+    '(corfu irony))
 
 ; install the missing packages
 (dolist (package package-list)
@@ -18,7 +18,6 @@
 ; Autocompletion
 (corfu-global-mode)
 (setq corfu-auto t)
-
 
 ;Stop Emacs from losing undo information by
 ; setting very high limits for undo buffers
@@ -92,17 +91,18 @@
 (defun my-c++-hook ()
 
   (setq c++-basic-offset 4)
-  (c++-set-offset 'substatement-open 0)
-  (c++-set-offset 'statement-block-intro 4)
-  (c++-set-offset 'topmost-intro 2)
-  (c++-set-offset 'defun-block-intro 4)
-  (c++-set-offset 'statement-block-into 4)
+    (c-add-style "my-c-style"
+    (c-set-offset 'substatement-open 0)
+    (c-set-offset 'statement-block-intro 4)
+    (c-set-offset 'topmost-intro 2)
+    (c-set-offset 'defun-block-intro 4)
+    (c-set-offset 'statement-block-into 4)
+  )
   (setq c++-indent-level 4)  
   (setq tab-width 4
         indent-tabs-mode nil)
-  ; Autocompletion
-  (corfu-global-mode)
-  (setq corfu-auto t)
+  
+  (c-set-style my-c-stype)
 
 )
 
@@ -139,10 +139,17 @@
   :keymap (make-sparse-keymap))
 (nav-mode)
 
+(define-minor-mode edit-mode
+  "Edit mode"
+  :lighter " Edit mode "
+  :keymap (make-sparse-keymap))
+(edit-mode)
+
 (defun enter-edit-mode ()
   (interactive)
   (set-cursor-color "NavajoWhite1")
-  (setq-default cursor-type 'bar) 
+  (setq-default cursor-type 'bar)
+  (edit-mode)
   (nav-mode -1))
 
 (defun enter-nav-mode ()
@@ -150,7 +157,8 @@
   (set-cursor-color "NavajoWhite1")
   (setq-default cursor-type 'box) 
   (deactivate-mark)
-  (nav-mode))
+  (nav-mode)
+  (edit-mode -1))
 
 ; Insert a newline at the end and enters edit mode"
 (defun newline-indent ()
@@ -185,6 +193,11 @@
 (defun select-text-start ()
   (interactive)
   (set-mark-command nil))
+
+(defun cut-region ()
+  (interactive)
+  (kill-region 0 0 'region)
+  (enter-edit-mode))
 
 (defun cd-file-dir ()
   (interactive)
@@ -255,9 +268,9 @@
 (define-key nav-mode-map (kbd "v") 'select-text-start)
 (define-key nav-mode-map (kbd "d") 'delete-region)
 (define-key nav-mode-map (kbd "y") 'copy-region-as-kill)
+(define-key nav-mode-map (kbd "c") 'cut-region)
 (define-key nav-mode-map (kbd "> >") 'indent-region)
 (define-key nav-mode-map (kbd "M-R") 'replace-string)
-(define-key nav-mode-map (kbd "c d") 'cd-file-dir)
 (define-key nav-mode-map (kbd "/") 'isearch-forward)
 (define-key nav-mode-map (kbd "C-/") 'isearch-yank-symbol-or-char)
 (define-key nav-mode-map (kbd "n") 'isearch-repeat-forward+)
@@ -270,8 +283,8 @@
 (define-key global-map (kbd "M-e") 'next-error)
 (define-key global-map (kbd "M-q") 'previous-error)
 
-;(define-key global-map [tab] 'dabbrev-completion)
-;(define-key global-map [shift-tab] 'dabbrev-expand)
+(define-key edit-mode-map [tab] 'dabbrev-completion)
+(define-key edit-mode-map [shift-tab] 'dabbrev-expand)
 
 (define-key global-map (kbd "M-m") 'build-project)
 
@@ -287,4 +300,12 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(package-selected-packages '(corfu ##)))
+ '(package-selected-packages '(irony corfu ##))
+ '(safe-local-variable-values
+   '((company-clang-arguments "-I/home/marko/spark/libs/glfw/include/" "-I/home/marko/spark/libs/stb/" "-I/home/marko/spark/libs/glm/" "-I/home/marko/spark/libs/imgui/"))))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )
