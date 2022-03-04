@@ -2,10 +2,22 @@
 (add-to-list 'package-archives
   '("melpa" . "http://melpa.org/packages/"))
 (add-to-list 'package-archives
-  '("org" . "http://orgmode.org/elpa/"))
+   '("org" . "http://orgmode.org/elpa/"))
+
+(setq package-list
+    '(corfu))
+
+; install the missing packages
+(dolist (package package-list)
+  (unless (package-installed-p package)
+    (package-install package)))
 
 (require 'compile)
+(require 'dabbrev)
 
+; Autocompletion
+(corfu-global-mode)
+(setq corfu-auto t)
 
 
 ;Stop Emacs from losing undo information by
@@ -18,11 +30,9 @@
 
 (if os_linux
     (setq build-script "../build.sh")
- (setq build-script "sh ../build.sh")
- )
-
-(setq enable-local-variables :safe)
-
+  (setq build-script "sh ../build.sh")
+  )
+ 
 ; Turn off menu/tool bar etc
 (tool-bar-mode -1)
 (menu-bar-mode -1)
@@ -30,7 +40,6 @@
 
 ; Font
 (set-frame-font "DejaVu Sans Mono-10.5" nil t)
-
 
 
 ; Disable bell
@@ -82,14 +91,19 @@
 ; CC++ mode handling
 (defun my-c++-hook ()
 
-  (setq c-basic-offset 4)
-  (c-set-offset 'substatement-open 0)
-  (c-set-offset 'statement-block-intro 4)
-  (c-set-offset 'topmost-intro 2)
-  (c-set-offset 'defun-block-intro 4)
-  (setq c-indent-level 4)  
+  (setq c++-basic-offset 4)
+  (c++-set-offset 'substatement-open 0)
+  (c++-set-offset 'statement-block-intro 4)
+  (c++-set-offset 'topmost-intro 2)
+  (c++-set-offset 'defun-block-intro 4)
+  (c++-set-offset 'statement-block-into 4)
+  (setq c++-indent-level 4)  
   (setq tab-width 4
         indent-tabs-mode nil)
+  ; Autocompletion
+  (corfu-global-mode)
+  (setq corfu-auto t)
+
 )
 
 (electric-pair-mode 1)
@@ -203,8 +217,8 @@
 
 (set-foreground-color "burlywood3")
 (set-background-color "#161616")
-(set-cursor-color "#40FF40")
-
+(set-cursor-color "NavajoWhite1")
+ 
 ; I-Search
 (defun isearch-repeat-forward+ ()
   (interactive)
@@ -231,7 +245,7 @@
 (define-key nav-mode-map (kbd "D") 'kill-whole-line)
 (define-key nav-mode-map (kbd "u") 'undo)
 (define-key nav-mode-map (kbd "p") 'yank)
-;(define-key nav-mode-map (kbd "y-y") 'my-copy-line)
+(define-key nav-mode-map (kbd "Y") 'my-copy-line)
 (define-key nav-mode-map (kbd "o") 'newline-indent)
 (define-key nav-mode-map (kbd "i") 'enter-edit-mode)
 (define-key nav-mode-map (kbd "x") 'delete-char)
@@ -249,12 +263,15 @@
 (define-key nav-mode-map (kbd "n") 'isearch-repeat-forward+)
 (define-key nav-mode-map (kbd "N") 'isearch-repeat-backward+)
 (define-key nav-mode-map (kbd "M-b") 'switch-to-previous-buffer)
+(define-key nav-mode-map (kbd ":") 'goto-line)
 
 (define-key global-map (kbd "M-f") 'find-file)
 (define-key global-map (kbd "M-w") 'other-window)
 (define-key global-map (kbd "M-e") 'next-error)
 (define-key global-map (kbd "M-q") 'previous-error)
 
+;(define-key global-map [tab] 'dabbrev-completion)
+;(define-key global-map [shift-tab] 'dabbrev-expand)
 
 (define-key global-map (kbd "M-m") 'build-project)
 
@@ -263,6 +280,11 @@
 
 (define-key global-map (kbd "M-k") 'scroll-half-page-down)
 (define-key global-map (kbd "M-j") 'scroll-half-page-up)
-
 (define-key global-map [escape] 'enter-nav-mode)
-(define-key global-map (kbd ":") 'goto-line)
+
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(package-selected-packages '(corfu ##)))
