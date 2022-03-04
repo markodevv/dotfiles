@@ -4,18 +4,9 @@
 (add-to-list 'package-archives
   '("org" . "http://orgmode.org/elpa/"))
 
-(package-install 'company)
-
-; Clang company setup
-(require 'company)
-(require 'cc-mode)
 (require 'compile)
 
-(add-hook 'after-init-hook 'global-company-mode)
 
-(setq company-backends (delete 'company-semantic company-backends))
-(define-key c-mode-map  [(tab)] 'company-complete)
-(define-key c++-mode-map  [(tab)] 'company-complete)
 
 ;Stop Emacs from losing undo information by
 ; setting very high limits for undo buffers
@@ -36,6 +27,10 @@
 (tool-bar-mode -1)
 (menu-bar-mode -1)
 (toggle-scroll-bar -1)
+
+; Font
+(set-frame-font "DejaVu Sans Mono-10.5" nil t)
+
 
 
 ; Disable bell
@@ -132,12 +127,14 @@
 
 (defun enter-edit-mode ()
   (interactive)
-  (set-cursor-color "#ffffff")
+  (set-cursor-color "NavajoWhite1")
+  (setq-default cursor-type 'bar) 
   (nav-mode -1))
 
 (defun enter-nav-mode ()
   (interactive)
-  (set-cursor-color "#b68100")
+  (set-cursor-color "NavajoWhite1")
+  (setq-default cursor-type 'box) 
   (deactivate-mark)
   (nav-mode))
 
@@ -195,13 +192,35 @@
 (transient-mark-mode)
 ; Colorscheme
 
-(set-face-attribute 'font-lock-builtin-face nil :foreground "#DAB98F")
-(set-face-attribute 'font-lock-comment-face nil :foreground "gray50")
-(set-face-attribute 'region nil :background "grey18")
+(set-face-attribute 'font-lock-builtin-face nil :foreground "gray69")
+(set-face-attribute 'font-lock-comment-face nil :foreground "gray38")
+(set-face-attribute 'region nil :background "gray25")
+(set-face-attribute 'font-lock-function-name-face nil :foreground "golden rod")
+(set-face-attribute 'font-lock-keyword-face nil :foreground "gray69")
+(set-face-attribute 'font-lock-type-face nil :foreground "tomato")
+(set-face-attribute 'font-lock-constant-face nil :foreground "gray69")
+
 
 (set-foreground-color "burlywood3")
 (set-background-color "#161616")
 (set-cursor-color "#40FF40")
+
+; I-Search
+(defun isearch-repeat-forward+ ()
+  (interactive)
+  (unless isearch-forward
+    (goto-char isearch-other-end))
+  (isearch-repeat-forward)
+  (unless isearch-success
+    (isearch-repeat-forward)))
+
+(defun isearch-repeat-backward+ ()
+  (interactive)
+  (when (and isearch-forward isearch-other-end)
+    (goto-char isearch-other-end))
+  (isearch-repeat-backward)
+  (unless isearch-success
+    (isearch-repeat-backward)))
 
 (define-key nav-mode-map (kbd "j") 'next-line)
 (define-key nav-mode-map (kbd "k") 'previous-line)
@@ -223,9 +242,12 @@
 (define-key nav-mode-map (kbd "d") 'delete-region)
 (define-key nav-mode-map (kbd "y") 'copy-region-as-kill)
 (define-key nav-mode-map (kbd "> >") 'indent-region)
-(define-key nav-mode-map (kbd "r r") 'replace-string)
+(define-key nav-mode-map (kbd "M-R") 'replace-string)
 (define-key nav-mode-map (kbd "c d") 'cd-file-dir)
 (define-key nav-mode-map (kbd "/") 'isearch-forward)
+(define-key nav-mode-map (kbd "C-/") 'isearch-yank-symbol-or-char)
+(define-key nav-mode-map (kbd "n") 'isearch-repeat-forward+)
+(define-key nav-mode-map (kbd "N") 'isearch-repeat-backward+)
 (define-key nav-mode-map (kbd "M-b") 'switch-to-previous-buffer)
 
 (define-key global-map (kbd "M-f") 'find-file)
@@ -238,23 +260,9 @@
 
 ; Buffers
 (define-key global-map (kbd "M-s") 'save-buffer)
-;(define-key global-map (kbd "M-b") 'revert-buffer)
 
 (define-key global-map (kbd "M-k") 'scroll-half-page-down)
 (define-key global-map (kbd "M-j") 'scroll-half-page-up)
 
 (define-key global-map [escape] 'enter-nav-mode)
 (define-key global-map (kbd ":") 'goto-line)
-
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(package-selected-packages '(company ##)))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- )
