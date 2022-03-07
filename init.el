@@ -1,3 +1,4 @@
+
 (package-initialize)
 (add-to-list 'package-archives
   '("melpa" . "http://melpa.org/packages/"))
@@ -5,19 +6,22 @@
    '("org" . "http://orgmode.org/elpa/"))
 
 (setq package-list
-    '(corfu irony))
+      '(eglot company))
 
 ; install the missing packages
 (dolist (package package-list)
   (unless (package-installed-p package)
     (package-install package)))
 
+;; Backup dir for files
+(setq backup-directory-alist '(("." . "~/.emacs_backup")))
+
 (require 'compile)
 (require 'dabbrev)
+(require 'eglot)
+(require 'company)
 
-; Autocompletion
-(corfu-global-mode)
-(setq corfu-auto t)
+(add-to-list 'eglot-server-programs '(c++-mode . ("ccls")))
 
 ;Stop Emacs from losing undo information by
 ; setting very high limits for undo buffers
@@ -89,21 +93,18 @@
 
 ; CC++ mode handling
 (defun my-c++-hook ()
-
   (setq c++-basic-offset 4)
-    (c-add-style "my-c-style"
-    (c-set-offset 'substatement-open 0)
-    (c-set-offset 'statement-block-intro 4)
-    (c-set-offset 'topmost-intro 2)
-    (c-set-offset 'defun-block-intro 4)
-    (c-set-offset 'statement-block-into 4)
-  )
+  (c-set-offset 'substatement-open 0)
+  (c-set-offset 'statement-block-intro 4)
+  (c-set-offset 'substatement 4)
+  (c-set-offset 'topmost-intro 0)
+  (c-set-offset 'defun-block-intro 4)
+  (c-set-offset 'statement-block-intro 4)
+  
   (setq c++-indent-level 4)  
   (setq tab-width 4
         indent-tabs-mode nil)
   
-  (c-set-style my-c-stype)
-
 )
 
 (electric-pair-mode 1)
@@ -113,17 +114,24 @@
 (defun my-compilation-hook ()
   (make-local-variable 'truncate-lines)
   (setq truncate-lines nil)
- )
+  )
 
-(add-hook 'c++-mode-common-hook 'my-c++-hook)
+(add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode))
+(add-hook 'c++-mode-hook 'my-c++-hook)
+
+
+
 (add-hook 'compilation-mode-hook 'my-compilation-hook)
 
-;(setq-default display-buffer-reuse-frames t)
 
 (defun toggle-comment-region()
   (interactive)
   (comment-or-uncomment-region 0 0 'region)
-)
+  )
+
+; Company
+(add-hook 'after-init-hook 'global-company-mode)
+
 
 ; Startup windowing
 (setq next-line-add-newlines nil)
@@ -269,28 +277,36 @@
 (define-key nav-mode-map (kbd "d") 'delete-region)
 (define-key nav-mode-map (kbd "y") 'copy-region-as-kill)
 (define-key nav-mode-map (kbd "c") 'cut-region)
-(define-key nav-mode-map (kbd "> >") 'indent-region)
+(define-key nav-mode-map (kbd ">") 'indent-region)
 (define-key nav-mode-map (kbd "M-R") 'replace-string)
 (define-key nav-mode-map (kbd "/") 'isearch-forward)
 (define-key nav-mode-map (kbd "C-/") 'isearch-yank-symbol-or-char)
 (define-key nav-mode-map (kbd "n") 'isearch-repeat-forward+)
 (define-key nav-mode-map (kbd "N") 'isearch-repeat-backward+)
-(define-key nav-mode-map (kbd "M-b") 'switch-to-previous-buffer)
 (define-key nav-mode-map (kbd ":") 'goto-line)
 
+(define-key edit-mode-map (kbd "C-v") 'yank)
+
 (define-key global-map (kbd "M-f") 'find-file)
-(define-key global-map (kbd "M-w") 'other-window)
 (define-key global-map (kbd "M-e") 'next-error)
 (define-key global-map (kbd "M-q") 'previous-error)
 
-(define-key edit-mode-map [tab] 'dabbrev-completion)
-(define-key edit-mode-map [shift-tab] 'dabbrev-expand)
+(define-key nav-mode-map (kbd "M-r") 'eglot-rename)
+(define-key company-active-map (kbd "TAB") 'company-complete-common-or-cycle)
+(define-key company-active-map (kbd "S-TAB") 'company-complete)
 
 (define-key global-map (kbd "M-m") 'build-project)
 
-; Buffers
+;; Buffers
 (define-key global-map (kbd "M-s") 'save-buffer)
+(define-key global-map (kbd "M-b") 'switch-to-buffer)
+(define-key nav-mode-map (kbd "C-b") 'switch-to-previous-buffer)
 
+;; Windows
+(define-key global-map (kbd "C-q") 'delete-window)
+(define-key global-map (kbd "M-w") 'other-window)
+
+;; Movement
 (define-key global-map (kbd "M-k") 'scroll-half-page-down)
 (define-key global-map (kbd "M-j") 'scroll-half-page-up)
 (define-key global-map [escape] 'enter-nav-mode)
@@ -300,9 +316,7 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(package-selected-packages '(irony corfu ##))
- '(safe-local-variable-values
-   '((company-clang-arguments "-I/home/marko/spark/libs/glfw/include/" "-I/home/marko/spark/libs/stb/" "-I/home/marko/spark/libs/glm/" "-I/home/marko/spark/libs/imgui/"))))
+ '(package-selected-packages '(company ## corfu eglot)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
