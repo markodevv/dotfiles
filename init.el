@@ -1,3 +1,5 @@
+;; TODO
+;; Goto function
 
 (package-initialize)
 (add-to-list 'package-archives
@@ -33,8 +35,7 @@
 
 (if os_linux
     (setq build-script "../build.sh")
-  (setq build-script "sh ../build.sh")
-  )
+  (setq build-script "sh ../build.sh"))
  
 ; Turn off menu/tool bar etc
 (tool-bar-mode -1)
@@ -43,7 +44,6 @@
 
 ; Font
 (set-frame-font "DejaVu Sans Mono-10.5" nil t)
-
 
 ; Disable bell
 (defun nil-bell ())
@@ -104,7 +104,6 @@
   (setq c++-indent-level 4)  
   (setq tab-width 4
         indent-tabs-mode nil)
-  
 )
 
 (electric-pair-mode 1)
@@ -119,25 +118,26 @@
 (add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode))
 (add-hook 'c++-mode-hook 'my-c++-hook)
 
-
-
 (add-hook 'compilation-mode-hook 'my-compilation-hook)
-
 
 (defun toggle-comment-region()
   (interactive)
   (comment-or-uncomment-region 0 0 'region)
-  )
+)
 
 ; Company
 (add-hook 'after-init-hook 'global-company-mode)
+(add-hook 'after-init-hook 'company-tng-mode)
 
+(defun goto-c-function ()
+  (interactive)
+  ;;(setq function (read-string "Goto function: "))
+  (imenu "Function"))
 
 ; Startup windowing
 (setq next-line-add-newlines nil)
 (setq-default truncate-lines t)
 (setq truncate-partial-width-windows nil)
-
 ; Smooth scroll
 (setq scroll-step 10)
 
@@ -146,6 +146,11 @@
   :lighter " Navigation mode "
   :keymap (make-sparse-keymap))
 (nav-mode)
+
+;; Enables nav mode globaly for every new buffer
+(define-globalized-minor-mode global-nav-mode nav-mode (lambda () (nav-mode)))
+(global-nav-mode)
+
 
 (define-minor-mode edit-mode
   "Edit mode"
@@ -167,6 +172,18 @@
   (deactivate-mark)
   (nav-mode)
   (edit-mode -1))
+
+;; This is used to exit out of nav mode when calling execute-extended-command
+(defun execute-my-extended-command (&rest args)
+  (interactive)
+  (if (interactive-p)
+      (progn
+        (setq unread-command-events (cons ?i unread-command-events))
+        (call-interactively #'execute-extended-command))
+    (funcall #'execute-extended-command args)))
+
+(global-set-key (kbd "9") #'execute-my-extended-command)
+
 
 ; Insert a newline at the end and enters edit mode"
 (defun newline-indent ()
@@ -207,17 +224,24 @@
   (kill-region 0 0 'region)
   (enter-edit-mode))
 
-(defun cd-file-dir ()
+(defun end-of-line-edit ()
   (interactive)
-  (cd (file-name-directory (buffer-file-name))))
+  (end-of-line)
+  (enter-edit-mode))
+
+(defun beginning-of-line-edit ()
+  (interactive)
+  (beginning-of-line-text)
+  (enter-edit-mode))
+
+(defun multiline-edit ()
+  (interactive)
+  (rectangle-mark-mode))
+  
 
 (defun switch-to-previous-buffer ()
   (interactive)
   (switch-to-buffer (other-buffer)))
-
-; Add hook so buffers start in nav mode
-;(add-hook 'buffer_list_update_hook 'enter-nav-mode)
-(add-hook 'find-file-hook 'enter-nav-mode)
 
 ; Start emacs maximized
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
@@ -234,7 +258,6 @@
 (set-face-attribute 'font-lock-keyword-face nil :foreground "gray69")
 (set-face-attribute 'font-lock-type-face nil :foreground "tomato")
 (set-face-attribute 'font-lock-constant-face nil :foreground "gray69")
-
 
 (set-foreground-color "burlywood3")
 (set-background-color "#161616")
@@ -263,6 +286,8 @@
 (define-key nav-mode-map (kbd "h") 'backward-char)
 (define-key nav-mode-map (kbd "w") 'forward-word)
 (define-key nav-mode-map (kbd "b") 'backward-word)
+(define-key nav-mode-map (kbd "I") 'beginning-of-line-edit)
+(define-key nav-mode-map (kbd "A") 'end-of-line-edit)
 (define-key nav-mode-map (kbd "D") 'kill-whole-line)
 (define-key nav-mode-map (kbd "u") 'undo)
 (define-key nav-mode-map (kbd "p") 'yank)
@@ -274,13 +299,14 @@
 (define-key nav-mode-map (kbd "G") 'end-of-buffer)
 (define-key nav-mode-map (kbd "C") 'my-kill-line)
 (define-key nav-mode-map (kbd "v") 'select-text-start)
+(define-key nav-mode-map (kbd "V") 'rectangle-mark-mode)
 (define-key nav-mode-map (kbd "d") 'delete-region)
 (define-key nav-mode-map (kbd "y") 'copy-region-as-kill)
 (define-key nav-mode-map (kbd "c") 'cut-region)
 (define-key nav-mode-map (kbd ">") 'indent-region)
 (define-key nav-mode-map (kbd "M-R") 'replace-string)
 (define-key nav-mode-map (kbd "/") 'isearch-forward)
-(define-key nav-mode-map (kbd "C-/") 'isearch-yank-symbol-or-char)
+(define-key nav-mode-map (kbd "M-/") 'isearch-forward-symbol-at-point)
 (define-key nav-mode-map (kbd "n") 'isearch-repeat-forward+)
 (define-key nav-mode-map (kbd "N") 'isearch-repeat-backward+)
 (define-key nav-mode-map (kbd ":") 'goto-line)
@@ -294,8 +320,10 @@
 (define-key nav-mode-map (kbd "M-r") 'eglot-rename)
 (define-key company-active-map (kbd "TAB") 'company-complete-common-or-cycle)
 (define-key company-active-map (kbd "S-TAB") 'company-complete)
-
 (define-key global-map (kbd "M-m") 'build-project)
+
+(define-key global-map (kbd "M-v") 'multiline-edit)
+;;(define-key rectangle-mark-mode-map (kbd "c") 'string-rectangle)
 
 ;; Buffers
 (define-key global-map (kbd "M-s") 'save-buffer)
@@ -310,6 +338,7 @@
 (define-key global-map (kbd "M-k") 'scroll-half-page-down)
 (define-key global-map (kbd "M-j") 'scroll-half-page-up)
 (define-key global-map [escape] 'enter-nav-mode)
+(define-key global-map (kbd "M-p") '(lambda () (interactive) (imenu 'Function))) 
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
