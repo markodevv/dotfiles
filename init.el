@@ -1,5 +1,6 @@
 ;; TODO
 ;; Goto function
+;; Display function signature immediately
 
 (package-initialize)
 (add-to-list 'package-archives
@@ -100,6 +101,7 @@
   (c-set-offset 'topmost-intro 0)
   (c-set-offset 'defun-block-intro 4)
   (c-set-offset 'statement-block-intro 4)
+  (c-set-offset 'brace-list-intro 4)
   
   (setq c++-indent-level 4)  
   (setq tab-width 4
@@ -117,6 +119,7 @@
 
 (add-to-list 'auto-mode-alist '("\\.h\\'" . c++-mode))
 (add-hook 'c++-mode-hook 'my-c++-hook)
+(add-hook 'c++-mode-hook 'eglot-ensure)
 
 (add-hook 'compilation-mode-hook 'my-compilation-hook)
 
@@ -173,7 +176,7 @@
   (nav-mode)
   (edit-mode -1))
 
-;; This is used to exit out of nav mode when calling execute-extended-command
+;; This is used to exit out of nav mode when calling execute-extended-command (M-x)
 (defun execute-my-extended-command (&rest args)
   (interactive)
   (if (interactive-p)
@@ -182,7 +185,7 @@
         (call-interactively #'execute-extended-command))
     (funcall #'execute-extended-command args)))
 
-(global-set-key (kbd "9") #'execute-my-extended-command)
+(global-set-key (kbd "M-x") #'execute-my-extended-command)
 
 
 ; Insert a newline at the end and enters edit mode"
