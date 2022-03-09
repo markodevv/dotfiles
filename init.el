@@ -174,7 +174,8 @@
   (setq-default cursor-type 'box) 
   (deactivate-mark)
   (nav-mode)
-  (edit-mode -1))
+  (edit-mode -1)
+  )
 
 ;; This is used to exit out of nav mode when calling execute-extended-command (M-x)
 (defun execute-my-extended-command (&rest args)
@@ -188,12 +189,12 @@
 (global-set-key (kbd "M-x") #'execute-my-extended-command)
 
 
-; Insert a newline at the end and enters edit mode"
+					; Insert a newline at the end and enters edit mode"
 (defun newline-indent ()
-   (interactive)
-   (move-end-of-line nil)
-   (newline-and-indent)
-   (enter-edit-mode))
+  (interactive)
+  (move-end-of-line nil)
+  (newline-and-indent)
+  (enter-edit-mode))
 
 (defun my-copy-line ()
   (interactive)
@@ -208,12 +209,12 @@
   (kill-line)
   (enter-edit-mode))
 
-; scroll down half the page"
+					; scroll down half the page"
 (defun scroll-half-page-down ()
   (interactive)
   (scroll-down (/ (window-body-height) 2)))
 
-; scroll up half the page"
+					; scroll up half the page"
 (defun scroll-half-page-up ()
   (interactive)
   (scroll-up (/ (window-body-height) 2)))
@@ -240,15 +241,15 @@
 (defun multiline-edit ()
   (interactive)
   (rectangle-mark-mode))
-  
+
 
 (defun switch-to-previous-buffer ()
   (interactive)
   (switch-to-buffer (other-buffer)))
 
-; Start emacs maximized
+					; Start emacs maximized
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
-; Split window at startup
+					; Split window at startup
 (split-window-horizontally)
 ; Highlight marked region
 (transient-mark-mode)
@@ -326,8 +327,7 @@
 (define-key global-map (kbd "M-m") 'build-project)
 
 (define-key global-map (kbd "M-v") 'multiline-edit)
-;;(define-key rectangle-mark-mode-map (kbd "c") 'string-rectangle)
-
+(define-key nav-mode-map (kbd "r") 'string-rectangle)
 ;; Buffers
 (define-key global-map (kbd "M-s") 'save-buffer)
 (define-key global-map (kbd "M-b") 'switch-to-buffer)
