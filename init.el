@@ -152,7 +152,7 @@
 
 ;; Enables nav mode globaly for every new buffer
 (define-globalized-minor-mode global-nav-mode nav-mode (lambda () (nav-mode)))
-(global-nav-mode)
+;;(global-nav-mode)
 
 
 (define-minor-mode edit-mode
@@ -178,16 +178,21 @@
   )
 
 ;; This is used to exit out of nav mode when calling execute-extended-command (M-x)
-(defun execute-my-extended-command (&rest args)
-  (interactive)
-  (if (interactive-p)
-      (progn
-        (setq unread-command-events (cons ?i unread-command-events))
-        (call-interactively #'execute-extended-command))
-    (funcall #'execute-extended-command args)))
+;; (defun execute-my-extended-command (&rest args)
+;;   (interactive)
+;;   (if (interactive-p)
+;;       (progn
+;;         (setq unread-command-events (cons ?i unread-command-events))
+;;         (call-interactively #'execute-extended-command))
+;;     (funcall #'execute-extended-command args)))
 
-(global-set-key (kbd "M-x") #'execute-my-extended-command)
+;; (global-set-key (kbd "M-x") #'execute-my-extended-command)
 
+
+;; (defun my-find-file ()
+;;   (interactive)
+;;   (enter-edit-mode)
+;;   (find-file));
 
 					; Insert a newline at the end and enters edit mode"
 (defun newline-indent ()
