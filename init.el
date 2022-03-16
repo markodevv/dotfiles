@@ -24,6 +24,10 @@
 (require 'eglot)
 (require 'company)
 
+(setq company-minimum-prefix-length 2)
+(setq company-idle-delay 0.1)
+(setq eldoc-idle-delay 0.1)
+
 (add-to-list 'eglot-server-programs '(c++-mode . ("ccls")))
 
 ;Stop Emacs from losing undo information by
@@ -35,9 +39,12 @@
 (setq os_linux (featurep 'x))
 
 (if os_linux
-    (setq build-script "../build.sh")
+    (progn
+      (setq config-file "/home/marko/.emacs.d/")
+      (setq build-script "../build.sh"))
+  (setq config-file "C:/Users/Marko/AppData/Roaming/.emacs.d/")
   (setq build-script "sh ../build.sh"))
- 
+
 ; Turn off menu/tool bar etc
 (tool-bar-mode -1)
 (menu-bar-mode -1)
@@ -125,8 +132,10 @@
 
 (defun toggle-comment-region()
   (interactive)
-  (comment-or-uncomment-region 0 0 'region)
-)
+  (comment-or-uncomment-region 0 0 'region))
+
+; Disable flymake
+(add-hook 'eglot--managed-mode-hook (lambda () (flymake-mode -1)))
 
 ; Company
 (add-hook 'after-init-hook 'global-company-mode)
@@ -174,8 +183,7 @@
   (setq-default cursor-type 'box) 
   (deactivate-mark)
   (nav-mode)
-  (edit-mode -1)
-  )
+  (edit-mode -1))
 
 ;; This is used to exit out of nav mode when calling execute-extended-command (M-x)
 ;; (defun execute-my-extended-command (&rest args)
@@ -194,7 +202,12 @@
 ;;   (enter-edit-mode)
 ;;   (find-file));
 
-					; Insert a newline at the end and enters edit mode"
+(defun open-c++-files-recursively (dirname)
+  (interactive "D")
+  (mapc #'find-file (directory-files-recursively dirname "\\.cpp$" nil))
+  (mapc #'find-file (directory-files-recursively dirname "\\.h$" nil)))
+
+; Insert a newline at the end and enters edit mode"
 (defun newline-indent ()
   (interactive)
   (move-end-of-line nil)
@@ -325,7 +338,10 @@
 (define-key global-map (kbd "M-f") 'find-file)
 (define-key global-map (kbd "M-e") 'next-error)
 (define-key global-map (kbd "M-q") 'previous-error)
-
+(global-set-key (kbd "<f1>")  (lambda () (interactive)
+				   (cd config-file)
+                                   (call-interactively 'find-file)))
+(define-key nav-mode-map (kbd ".") 'kmacro-end-or-call-macro)
 (define-key nav-mode-map (kbd "M-r") 'eglot-rename)
 (define-key company-active-map (kbd "TAB") 'company-complete-common-or-cycle)
 (define-key company-active-map (kbd "S-TAB") 'company-complete)
