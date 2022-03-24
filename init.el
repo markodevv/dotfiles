@@ -263,7 +263,7 @@
 					; Start emacs maximized
 (add-to-list 'default-frame-alist '(fullscreen . maximized))
 					; Split window at startup
-(split-window-horizontally)
+;(split-window-horizontally)
 ; Highlight marked region
 (transient-mark-mode)
 ; Colorscheme
@@ -358,6 +358,63 @@
 (define-key global-map (kbd "M-p") '(lambda () (interactive) (imenu 'Function)))
 
 (define-key edit-mode-map (kbd "<tab>") 'dabbrev-expand)
+
+;; This is copy pase from imenu.el and modified so it doesn't query
+;; the user for index item and instead default to "Function"
+(defun my-imenu--completion-buffer (index-alist &optional prompt)
+  (let ((name (thing-at-point 'symbol))
+	choice
+	(prepared-index-alist
+	 (if (not imenu-space-replacement) index-alist
+	   (mapcar
+	    (lambda (item)
+	      (cons (subst-char-in-string ?\s (aref imenu-space-replacement 0)
+					  (car item))
+		    (cdr item)))
+	    index-alist))))
+    (cond (prompt) (t (setq prompt "Goto Function: ")))
+    (let ((minibuffer-setup-hook minibuffer-setup-hook))
+      ;; Display the completion buffer.
+      (if (not imenu-eager-completion-buffer)
+	  (add-hook 'minibuffer-setup-hook 'minibuffer-completion-help))
+      (setq name "Function"))
+    
+    (when (stringp name)
+      (setq choice (assoc name prepared-index-alist))
+      (if (imenu--subalist-p choice)
+	  (imenu--completion-buffer (cdr choice) prompt)
+	choice))))
+
+(defun my-imenu-choose-buffer-index (&optional prompt alist)
+    ;; Create a list for this buffer only when needed.
+  (let (index-alist
+	(mouse-triggered (listp last-nonmenu-event))
+	(result t))
+    (while (eq result t)
+      (setq index-alist (if alist alist (imenu--make-index-alist)))
+      (setq result (my-imenu--completion-buffer index-alist prompt))
+      (and (equal result imenu--rescan-item)
+	   (imenu--cleanup)
+	   (setq result t imenu--index-alist nil)))
+    result))
+
+
+(defun my-imenu (index-item)
+  (interactive (list (my-imenu-choose-buffer-index)))
+  ;; Convert a string to an alist element.
+  (if (stringp index-item)
+      (setq index-item (assoc index-item (imenu--make-index-alist))))
+  (when index-item
+    (pcase index-item
+      (`(,name ,pos ,fn . ,args)
+       (push-mark nil t)
+       (apply fn name pos args)
+       (run-hooks 'imenu-after-jump-hook))
+      (`(,name . ,pos) (imenu (list name pos imenu-default-goto-function)))
+      (_ (error "Unknown imenu item: %S" index-item)))))
+
+(define-key nav-mode-map (kbd "M-p") 'my-imenu)
+
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
