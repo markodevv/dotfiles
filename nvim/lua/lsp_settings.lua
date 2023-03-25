@@ -3,10 +3,10 @@ local lspconfig = require("lspconfig")
 -- Mappings.
 -- See `:help vim.diagnostic.*` for documentation on any of the below functions
 local opts = { noremap=true, silent=true }
-vim.keymap.set('n', '<space>e', vim.diagnostic.open_float, opts)
-vim.keymap.set('n', '[d', vim.diagnostic.goto_prev, opts)
-vim.keymap.set('n', ']d', vim.diagnostic.goto_next, opts)
-vim.keymap.set('n', '<space>q', vim.diagnostic.setloclist, opts)
+--vim.keymap.set('n', '<space>e', vim.diagnostic.open_float, opts)
+vim.keymap.set('n', '<space>e', vim.diagnostic.goto_prev, opts)
+vim.keymap.set('n', '<space>q', vim.diagnostic.goto_next, opts)
+--vim.keymap.set('n', '<space>q', vim.diagnostic.setloclist, opts)
 
 -- Use an on_attach function to only map the following keys
 -- after the language server attaches to the current buffer
@@ -14,9 +14,11 @@ local on_attach = function(client, bufnr)
   -- Enable lsp signature plugin
   require "lsp_signature".on_attach({
     bind = true,
-    floating_window = false, 
+    floating_window = true, 
+    wrap = true,
+    hint_enable = false,
     handler_opts = {
-      border = "rounded"
+      border = "none"
     }
   }, bufnr)
 
@@ -47,7 +49,12 @@ local lsp_flags = {
   debounce_text_changes = 150,
 }
 
+require'lspconfig'.ols.setup{
+  on_attach = on_attach,
+  flags = lsp_flags,
+}
+
 require('lspconfig')['clangd'].setup{
-    on_attach = on_attach,
-    flags = lsp_flags,
+  on_attach = on_attach,
+  flags = lsp_flags,
 }
