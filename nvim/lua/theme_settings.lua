@@ -2,10 +2,6 @@ local theme = {}
 
 function theme.set()
   vim.cmd [[
-    " Vim color file
-    " black
-    " Created by  with ThemeCreator (https://github.com/mswift42/themecreator)
-
     hi clear
 
     if exists("syntax on")
@@ -15,7 +11,6 @@ function theme.set()
     set t_Co=256
     let g:colors_name = "black"
 
-    " Define reusable colorvariables.
     let s:bg="#111111"
     let s:fg="#a9a384"
     let s:fg2="#a8a592"
@@ -24,13 +19,13 @@ function theme.set()
     let s:bg2="#050505"
     let s:bg3="#292929"
     let s:bg4="#3d3d3d"
-    let s:keyword="#3e7dca"
+    let s:keyword="#c9ac1d"
     let s:builtin="#0084ff"
-    let s:const= "#c581b9"
+    let s:const="#c581b9"
     let s:comment="#808080"
-    let s:func="#c33716"
+    let s:func="#c34716"
     let s:str="#54a834"
-    let s:preproc ="#c9761d"
+    let s:preproc="#c9761d"
     let s:type="#c9ac1d"
     let s:var="#b7b39f"
     let s:warning="#ff0000"

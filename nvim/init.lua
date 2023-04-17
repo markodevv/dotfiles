@@ -1,14 +1,40 @@
 require("lsp_settings")
 local theme = require("theme_settings")
 
+local os = vim.loop.os_uname().sysname;
 local project_dir = vim.fn.getcwd()
 local run_command = "..\\build\\game.exe" 
-local build_command = "py build.py"
+local build_command = "sh build.sh"
+local config_file
+
+if os == "Windows_NT" then
+  config_file = "~/AppData/Local/nvim/init.lua<CR>"
+else
+  config_file = "~/.config/nvim/init.lua<CR>"
+end
+
+
+if vim.g.neovide then
+  theme.set()
+  vim.o.guifont = "Consolas:h11.5"
+  vim.g.neovide_scroll_animation_length = 0.3
+  vim.g.neovide_transparency = 1.0
+  vim.g.neovide_hide_mouse_when_typing = true
+  vim.g.neovide_refresh_rate = 60 
+  vim.g.neovide_refresh_rate_idle = 5
+  vim.g.neovide_scroll_animation_length = 0.15
+  vim.g.neovide_profiler = false
+  vim.g.neovide_fullscreen = false
+  vim.g.neovide_touch_drag_timeout = 0.17
+  vim.g.neovide_cursor_animation_length= 0.08
+  vim.g.neovide_cursor_trail_size = 0.2
+end
 
 local error_formats = 
 {
-  ["cpp"] = "%f:%l:%c: error: %m",
-  ["c"] = "%f:%l:%c: error: %m",
+  ["cpp"] = "%f(%l\\,%c): error %m", -- msbuild
+  --["cpp"] = "%f:%l:%c: error: %m", -- clang
+  ["c"] = "%f:%l:%c: error: %m", -- clang
   ["odin"] = "%f(%l:%c) %m",
 }
 
@@ -30,6 +56,7 @@ local greps =
 local function_regex_str =
 {
   ["cpp"] = {"\\v^((\\w[*&]?)+\\s+){1,3}(\\w(::)?)+\\(.*", "\\v(\\w(::)?)+\\(.*"},
+  ["lua"] = {"\\v^((\\w[*&]?)+\\s+){1,3}(\\w(::)?)+\\(.*", "\\v(\\w(::)?)+\\(.*"},
   ["c"] = {"\\v^((\\w[*&]?)+\\s+){1,3}(\\w(::)?)+\\(.*", "\\v(\\w(::)?)+\\(.*"},
   ["odin"] = {"\\v^(\\w+\\s+::\\s+proc\\()", "\\v^\\w+"},
 }
@@ -109,6 +136,7 @@ local function build_project()
   local previous_dir = vim.fn.getcwd()
 
   vim.cmd("cd " .. project_dir)
+  local file_type = vim.bo.filetype
 
   print("Building...")
 
@@ -119,7 +147,8 @@ local function build_project()
       end
     end
 
-    error_format = error_formats[vim.bo.filetype]
+    error_format = error_formats[file_type]
+    print(error_format)
 
     if event == "exit" then
       vim.fn.setqflist({}, " ", {
@@ -449,7 +478,7 @@ end
 -- Treesitter
 require'nvim-treesitter.configs'.setup {
    --A list of parser names, or "all"
-  ensure_installed = { "help", "c", "cpp", "rust" },
+  ensure_installed = { "c", "cpp", "rust" },
   ignore_install = { "lua" },
    --Install parsers synchronously (only applied to `ensure_installed`)
   sync_install = false,
@@ -500,9 +529,6 @@ vim.api.nvim_create_autocmd(
 }
 )
 
--- Theme
-theme.set()
-
 -- Options
 -- vim.cmd[[set scl=no]]
 vim.o.signcolumn="no"
@@ -529,18 +555,6 @@ vim.opt.shellpipe = ">%s 2>&1"
 vim.opt.scrolloff = 8
 vim.opt.updatetime = 50
 vim.opt.guifont = {"JuliaMono:h10.4"}
-
--- Neovide
-vim.g.neovide_transparency = 1.0
-vim.g.neovide_hide_mouse_when_typing = true
-vim.g.neovide_refresh_rate = 60 
-vim.g.neovide_refresh_rate_idle = 10
-vim.g.neovide_scroll_animation_length = 0.15
-vim.g.neovide_profiler = false
-vim.g.neovide_fullscreen = false
-vim.g.neovide_touch_drag_timeout = 0.17
-vim.g.neovide_cursor_animation_length= 0.08
-vim.g.neovide_cursor_trail_size = 0.2
 
 -- Floaterm
 vim.g.floaterm_position = "bottomright"
@@ -570,7 +584,7 @@ vim.keymap.set("n", "<A-k>", "<C-u>")
 vim.keymap.set("n", "<A-s>", ":w<CR>")
 vim.keymap.set("n", "<A-w>", "<C-w>w")
 vim.keymap.set("n", "<C-f>", "yiw/<C-r>0")
-vim.keymap.set("n", "<F7>", ":e ~/AppData/Local/nvim/init.lua<CR>")
+vim.keymap.set("n", "<F7>", ":e " .. config_file)
 vim.keymap.set("n", "<leader>d", vim.cmd.Ex)
 vim.keymap.set("n", "<A-f>", ":e **/*")
 vim.keymap.set("n", "<A-F>", ":e %:h/**/*")
@@ -612,9 +626,9 @@ vim.keymap.set("i", "\"", handle_quotes, {expr = true})
 vim.keymap.set("i", "\'", handle_small_quotes, {expr = true})
 vim.keymap.set("i", "<backspace>", handle_backspace, {expr = true})
 
-
 -- Plugins
 vim.cmd [[packadd packer.nvim]]
+
 return require('packer').startup(function(use)
   use 'neovim/nvim-lspconfig' -- Configurations for Nvim LSP
   use 'wbthomason/packer.nvim'
