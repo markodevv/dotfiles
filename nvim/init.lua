@@ -2,17 +2,18 @@ require("lsp_settings")
 local theme = require("theme_settings")
 
 local os = vim.loop.os_uname().sysname;
-local project_dir = vim.fn.getcwd()
 local run_command = "..\\build\\game.exe" 
 local build_command = "sh build.sh"
 local config_file
 
 if os == "Windows_NT" then
   config_file = "~/AppData/Local/nvim/init.lua<CR>"
+  vim.api.nvim_set_current_dir("C:/work")
 else
   config_file = "~/.config/nvim/init.lua<CR>"
 end
 
+local project_dir = vim.fn.getcwd()
 
 if vim.g.neovide then
   theme.set()
@@ -201,7 +202,6 @@ local function run_project_impl(type)
   end
 
   if type == "normal" then
-
     -- Clear the quickfix list
     vim.fn.setqflist({}, " ", {
       title = "Run",
