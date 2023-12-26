@@ -1,22 +1,23 @@
 require("lsp_settings")
-local theme = require("theme_settings")
 
 local os = vim.loop.os_uname().sysname;
 local run_command = "..\\build\\game.exe" 
-local build_command = "sh build.sh"
+local build_command = "py build.py"
 local config_file
 
 if os == "Windows_NT" then
   config_file = "~/AppData/Local/nvim/init.lua<CR>"
-  vim.api.nvim_set_current_dir("C:/work")
+  --vim.api.nvim_set_current_dir("C:/work")
 else
   config_file = "~/.config/nvim/init.lua<CR>"
 end
 
 local project_dir = vim.fn.getcwd()
 
+vim.o.completeopt="menu"
+vim.cmd [[colorscheme bland]]
+
 if vim.g.neovide then
-  theme.set()
   vim.o.guifont = "Consolas:h11.5"
   vim.g.neovide_scroll_animation_length = 0.3
   vim.g.neovide_transparency = 1.0
@@ -24,7 +25,7 @@ if vim.g.neovide then
   vim.g.neovide_refresh_rate = 60 
   vim.g.neovide_refresh_rate_idle = 5
   vim.g.neovide_scroll_animation_length = 0.15
-  vim.g.neovide_profiler = false
+  vim.g.neovide_profiler = true
   vim.g.neovide_fullscreen = false
   vim.g.neovide_touch_drag_timeout = 0.17
   vim.g.neovide_cursor_animation_length= 0.08
@@ -34,7 +35,7 @@ end
 local error_formats = 
 {
   ["cpp"] = "%f(%l\\,%c): error %m", -- msbuild
-  --["cpp"] = "%f:%l:%c: error: %m", -- clang
+  -- ["cpp"] = "%f:%l:%c: error: %m", -- clang
   ["c"] = "%f:%l:%c: error: %m", -- clang
   ["odin"] = "%f(%l:%c) %m",
 }
@@ -47,7 +48,7 @@ local comments =
   ["lua"] = "--",
 }
 
-local greps = 
+local file_greps = 
 {
   ["cpp"] = "**/*.cpp **/*.h **/*.hpp **/*.c",
   ["c"] = "**/*.cpp **/*.h **/*.hpp **/*.c",
@@ -59,7 +60,7 @@ local function_regex_str =
   ["cpp"] = {"\\v^((\\w[*&]?)+\\s+){1,3}(\\w(::)?)+\\(.*", "\\v(\\w(::)?)+\\(.*"},
   ["lua"] = {"\\v^((\\w[*&]?)+\\s+){1,3}(\\w(::)?)+\\(.*", "\\v(\\w(::)?)+\\(.*"},
   ["c"] = {"\\v^((\\w[*&]?)+\\s+){1,3}(\\w(::)?)+\\(.*", "\\v(\\w(::)?)+\\(.*"},
-  ["odin"] = {"\\v^(\\w+\\s+::\\s+proc\\()", "\\v^\\w+"},
+  ["odin"] = {"\\v^(\\w+\\s+::\\s+(#\\w+\\s+){0,2}proc(\\s+\"\\w+\"\\s+)?\\()", "\\v^\\w+"},
 }
 
 local function set_build_command()
@@ -117,16 +118,19 @@ vim.lsp.diagnostic.on_publish_diagnostics, {
 }
 )
 
-local quickfix_window_open = false
+local qf_window_open = false
+local qf_prev_win;
 
 local function toggle_quickfix()
-  if (quickfix_window_open) then
+  if (qf_window_open) then
     vim.cmd(":cclose")
-    quickfix_window_open = false;
+    qf_window_open = false;
+    vim.api.nvim_set_current_win(prev_win)
   else
+    prev_win = vim.api.nvim_get_current_win()
     vim.cmd(":copen")
     vim.cmd(":wincmd J")
-    quickfix_window_open = true;
+    qf_window_open = true;
   end
 end
 
@@ -408,6 +412,20 @@ local function handle_small_quotes()
   return handle_pair('\'', '\'', '\'')
 end
 
+local function handle_enter()
+  local pos = vim.api.nvim_win_get_cursor(0)
+  local line = vim.api.nvim_get_current_line() 
+  local char = string.byte(line, pos[2])
+  local next_char = string.byte(line, pos[2]+1)
+  
+  if char      == string.byte("{") and
+     next_char == string.byte("}") then
+    return "<CR>" .. "<CR>" .. "<up>" .. "<esc>" .. "S"
+  else
+    return "<CR>"
+  end
+end
+
 local function handle_backspace()
   local pos = vim.api.nvim_win_get_cursor(0)
   local line = vim.api.nvim_get_current_line() 
@@ -426,7 +444,15 @@ local function handle_backspace()
   end
 end
 
-local function goto_c_function()
+local function complete()
+  if vim.fn.pumvisible() == 1 then
+    return '<C-n>'
+  else
+    return '<C-x><C-o>'
+  end
+end
+
+local function goto_function()
 
   local line_count = vim.api.nvim_buf_line_count(0)
   local lines = vim.api.nvim_buf_get_lines(0, 0, line_count, false)
@@ -502,19 +528,56 @@ require'nvim-treesitter.configs'.setup {
   },
 }
 
+require"lsp_signature".setup {
+  hi_parameter="IncSearch",
+}
 local parser_mapping = require("nvim-treesitter.parsers")
 parser_mapping.cpp = "c"
 
-local function grep_project()
+local function grep_global()
   local on_input = function(input)
-    print(vim.bo.filetype);
-    grep = greps[vim.bo.filetype]
-    vim.cmd("vimgrep " .. "\"" .. input .. "\"" .. grep)
+    vim.cmd("vimgrep " .. "\"" .. input .. "\"" .. "*.*")
+  end
+  vim.ui.input({
+    prompt = "Grep:",
+  }, on_input)
+end
+
+local function get_curr_buf_directory_path()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local file_path = vim.api.nvim_buf_get_name(bufnr)
+  local directory_path = vim.fn.fnamemodify(file_path, ":h")
+  return directory_path;
+end
+
+local function grep_project_internal(use_file_dir)
+  local directory = ""
+
+  if use_file_dir then
+    directory = get_curr_buf_directory_path()
+  end
+
+  local on_input = function(input)
+      file_grep = file_greps[vim.bo.filetype]
+      if file_grep ~= nil then
+        vim.cmd("vimgrep " .. "\"" .. input .. "\"" .. directory .. file_grep)
+      else
+        vim.cmd("vimgrep " .. "\"" .. input .. "\"" .. directory .. "*.*")
+        -- vim.api.nvim_err_writeln("N")
+      end
   end
 
   vim.ui.input({
     prompt = "Grep:",
   }, on_input)
+end
+
+local function grep_project_file_dir()
+  grep_project_internal(true)
+end
+
+local function grep_project_cwd()
+  grep_project_internal(false)
 end
 
 local function set_cpp_buffer_options()
@@ -548,9 +611,11 @@ vim.opt.backup = false
 vim.opt.undofile = true
 vim.opt.undodir = vim.env.HOME .. "/undodir"
 vim.opt.hlsearch = true
-vim.opt.wrap = false
+vim.opt.wrap = true
+vim.opt.linebreak = true
+vim.opt.breakindent = true
+vim.opt.showbreak = "››"
 vim.opt.shellpipe = ">%s 2>&1" 
-
 
 vim.opt.scrolloff = 8
 vim.opt.updatetime = 50
@@ -568,7 +633,6 @@ vim.api.nvim_create_user_command("SetRunCommand", set_run_command, {})
 vim.api.nvim_create_user_command("SetBuildCommand", set_build_command, {})
 vim.api.nvim_create_user_command("SetProjectDirectory", set_project_directory, {})
 vim.api.nvim_create_user_command("SetProjectSettings", set_project_settings, {})
---vim.api.nvim_create_user_command("LoadCppProject", load_cpp_project, {})
 
 -- Keybinds
 vim.g.mapleader = " "
@@ -583,19 +647,20 @@ vim.keymap.set("n", "<A-j>", "<C-d>")
 vim.keymap.set("n", "<A-k>", "<C-u>")
 vim.keymap.set("n", "<A-s>", ":w<CR>")
 vim.keymap.set("n", "<A-w>", "<C-w>w")
-vim.keymap.set("n", "<C-f>", "yiw/<C-r>0")
+vim.keymap.set("n", "<C-f>", "*")
 vim.keymap.set("n", "<F7>", ":e " .. config_file)
 vim.keymap.set("n", "<leader>d", vim.cmd.Ex)
 vim.keymap.set("n", "<A-f>", ":e **/*")
 vim.keymap.set("n", "<A-F>", ":e %:h/**/*")
 vim.keymap.set("n", "<A-b>", ":b ")
-vim.keymap.set("n", "<F3>", grep_project)
+vim.keymap.set("n", "<F3>", grep_project_cwd)
+vim.keymap.set("n", "<S-F3>", grep_project_file_dir)
+vim.keymap.set("n", "<C-F3>", grep_global)
 vim.keymap.set("n", "`", toggle_quickfix)
-vim.keymap.set("n", "<C-t>", ":FloatermToggle<CR>")
-vim.keymap.set("n", "<A-p>", goto_c_function)
+--vim.keymap.set("n", "<C-t>", ":FloatermToggle<CR>")
+vim.keymap.set("n", "<A-p>", goto_function)
 vim.keymap.set("n", "<A-m>", build_project)
 vim.keymap.set("n", "<F4>", run_project)
---vim.keymap.set("n", "<F5>", ":!remedybg start-debugging<CR>")
 vim.keymap.set("n", "<F5>", run_project_debug)
 vim.keymap.set("n", "<S-F5>", ":!remedybg stop-debugging<CR>")
 vim.keymap.set("n", "<C-r>", "<C-q>");
@@ -608,23 +673,26 @@ vim.keymap.set("n", "<C-o>", ":bnext<CR>")
 vim.keymap.set("n", "<C-i>", ":bprevious<CR>")
 vim.keymap.set("n", "<tab>", "")
 vim.keymap.set("n", "<C-n>", "<C-^>")
+vim.keymap.set("n", "<A-BS>", "ciw")
 
 vim.keymap.set("v", "Y", "\"+y")
 vim.keymap.set("v", "s", ":s/");
 vim.keymap.set("v", "<C-c>", ":CommentSelection<CR>")
 
-vim.keymap.set("i", "<tab>", "<C-n>")
+vim.keymap.set("i", "<tab>", complete, {expr = true})
+vim.keymap.set("i", "<A-BS>", "<C-w>")
 vim.keymap.set("i", "(", handle_open_paren, {expr = true})
 vim.keymap.set("i", ")", handle_close_paren, {expr = true})
 vim.keymap.set("i", "{", handle_open_brace, {expr = true})
 vim.keymap.set("i", "}", handle_close_brace, {expr = true})
 vim.keymap.set("i", "[", handle_open_bracket, {expr = true})
 vim.keymap.set("i", "]", handle_close_bracket, {expr = true})
-vim.keymap.set("i", "<", handle_open_angle_bracket, {expr = true})
-vim.keymap.set("i", ">", handle_close_angle_bracket, {expr = true})
+--vim.keymap.set("i", "<", handle_open_angle_bracket, {expr = true})
+--vim.keymap.set("i", ">", handle_close_angle_bracket, {expr = true})
 vim.keymap.set("i", "\"", handle_quotes, {expr = true})
 vim.keymap.set("i", "\'", handle_small_quotes, {expr = true})
 vim.keymap.set("i", "<backspace>", handle_backspace, {expr = true})
+vim.keymap.set("i", "<CR>", handle_enter, {expr = true})
 
 -- Plugins
 vim.cmd [[packadd packer.nvim]]
@@ -632,10 +700,11 @@ vim.cmd [[packadd packer.nvim]]
 return require('packer').startup(function(use)
   use 'neovim/nvim-lspconfig' -- Configurations for Nvim LSP
   use 'wbthomason/packer.nvim'
-  use "rebelot/kanagawa.nvim"
   use "ray-x/lsp_signature.nvim"
   use 'nvim-treesitter/nvim-treesitter'
   use 'kalvinpearce/ShaderHighlight'
   use 'Tetralux/odin.vim'
+  use 'sadotsoy/darkforce-vim'
+  use 'teloe/bland.vim'
 end)
 
