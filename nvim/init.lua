@@ -1,36 +1,145 @@
 require("lsp_settings")
 
-local os = vim.loop.os_uname().sysname;
-local run_command = "..\\build\\game.exe" 
-local build_command = "py build.py"
-local config_file
+-- TODO --
+-- [x] Running project
+-- [x] Running project trough debugger
+-- [x] Fix quickfix error output (everything is 1 line)
+-- [x] Fail build on link errors
+-- [ ] Displaying output from running app
+-- [x] Don't build if building process already started
+-- [x] Setting/Jumping to mark
+-- [x] Grep project
+-- [x] Make completion prioritize closer words
+-- [ ] Make completion work on improted packages
+-- [ ] Comment/Uncomment
 
-if os == "Windows_NT" then
-  config_file = "~/AppData/Local/nvim/init.lua<CR>"
-  --vim.api.nvim_set_current_dir("C:/work")
-else
-  config_file = "~/.config/nvim/init.lua<CR>"
+-- Package manager setup --
+
+vim.cmd [[packadd packer.nvim]]
+
+require('packer').startup(function(use)
+  use 'neovim/nvim-lspconfig'
+  use 'wbthomason/packer.nvim'
+  use "ray-x/lsp_signature.nvim"
+  use "Tetralux/odin.vim"
+end);
+
+------------------
+
+-- Plugin configs --
+
+local lspconfig = require("lspconfig")
+
+-- Mappings.
+-- See `:help vim.diagnostic.*` for documentation on any of the below functions
+local opts = { noremap=true, silent=true }
+--vim.keymap.set('n', '<space>e', vim.diagnostic.open_float, opts)
+--vim.keymap.set('n', '<space>q', vim.diagnostic.goto_prev, opts)
+--vim.keymap.set('n', '<space>e', vim.diagnostic.goto_next, opts)
+--vim.keymap.set('n', '<space>q', vim.diagnostic.setloclist, opts)
+
+-- Use an on_attach function to only map the following keys
+-- after the language server attaches to the current buffer
+local on_attach = function(client, bufnr)
+  -- Enable lsp signature plugin
+  require "lsp_signature".on_attach({
+    bind = true,
+    floating_window = true, 
+    wrap = true,
+    hint_enable = false,
+    handler_opts = {
+      border = "none"
+    }
+  }, bufnr)
+
+  -- Enable completion triggered by <c-x><c-o>
+  vim.api.nvim_buf_set_option(bufnr, 'omnifunc', 'v:lua.vim.lsp.omnifunc')
+  -- Mappings.
+  -- See `:help vim.lsp.*` for documentation on any of the below functions
+  local bufopts = { noremap=true, silent=true, buffer=bufnr }
+  vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, bufopts)
+  vim.keymap.set('n', 'gd', vim.lsp.buf.definition, bufopts)
+  vim.keymap.set('n', 'K', vim.lsp.buf.hover, bufopts)
+  vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, bufopts)
+  --vim.keymap.set('n', '<C-k>', vim.lsp.buf.signature_help, bufopts)
+  --vim.keymap.set('n', '<space>wa', vim.lsp.buf.add_workspace_folder, bufopts)
+  --vim.keymap.set('n', '<space>wr', vim.lsp.buf.remove_workspace_folder, bufopts)
+  --vim.keymap.set('n', '<space>wl', function()
+    --print(vim.inspect(vim.lsp.buf.list_workspace_folders()))
+  --end, bufopts)
+  vim.keymap.set('n', '<space>D', vim.lsp.buf.type_definition, bufopts)
+  vim.keymap.set('n', '<F2>', vim.lsp.buf.rename, bufopts)
+  --vim.keymap.set('n', '<space>ca', vim.lsp.buf.code_action, bufopts)
+  vim.keymap.set('n', 'gr', vim.lsp.buf.references, bufopts)
+  --vim.keymap.set('n', '<space>f', function() vim.lsp.buf.format { async = true } end, bufopts)
 end
 
-local project_dir = vim.fn.getcwd()
+local lsp_flags = {
+  -- This is the default in Nvim 0.7+
+  debounce_text_changes = 150,
+}
 
+require'lspconfig'.ols.setup{
+  on_attach = on_attach,
+  flags = lsp_flags,
+}
+
+-- Disable anoying diagnostics
+vim.diagnostic.disable();
+
+--require('lspconfig')['clangd'].setup{
+--  on_attach = on_attach,
+--  flags = lsp_flags,
+--}
+
+require"lsp_signature".setup {
+  hi_parameter="IncSearch",
+}
+
+------------------
+
+config_file = "~/AppData/Local/nvim/init.lua<CR>"
+
+-- Options --
+
+vim.g.mapleader = " "
+vim.g.maplocalleader = "\\"
 vim.o.completeopt="menu"
-vim.cmd [[colorscheme bland]]
+vim.o.signcolumn="no"
+vim.opt.complete = '.,w'
+vim.opt.pumheight = 4 
+vim.opt.relativenumber = false
+vim.opt.gdefault = true
+vim.opt.tabstop = 2
+vim.opt.softtabstop = 2
+vim.opt.shiftwidth = 2
+vim.opt.expandtab = true
+vim.opt.swapfile = false
+vim.opt.undofile = true
+vim.opt.undodir = vim.env.HOME .. "/undodir"
+vim.opt.hlsearch = false
+vim.opt.scrolloff = 8
+vim.opt.cmdheight = 2
+vim.cmd.colorscheme("retrobox");
 
-if vim.g.neovide then
-  vim.o.guifont = "Consolas:h11.5"
-  vim.g.neovide_scroll_animation_length = 0.3
-  vim.g.neovide_transparency = 1.0
-  vim.g.neovide_hide_mouse_when_typing = true
-  vim.g.neovide_refresh_rate = 60 
-  vim.g.neovide_refresh_rate_idle = 5
-  vim.g.neovide_scroll_animation_length = 0.15
-  vim.g.neovide_profiler = true
-  vim.g.neovide_fullscreen = false
-  vim.g.neovide_touch_drag_timeout = 0.17
-  vim.g.neovide_cursor_animation_length= 0.08
-  vim.g.neovide_cursor_trail_size = 0.2
-end
+------------------
+
+-- Variables --
+
+local qf_window_open = false
+local qf_prev_win;
+
+local build_cmd = "py build.py" 
+local language = "odin"
+local lang_list = {
+  "odin",
+  "cpp",
+  "c",
+}
+
+local project_dir = vim.fn.getcwd();
+local app_exe
+local project_dir
 
 local error_formats = 
 {
@@ -40,14 +149,6 @@ local error_formats =
   ["odin"] = "%f(%l:%c) %m",
 }
 
-local comments = 
-{
-  ["cpp"] = "//",
-  ["c"] = "//",
-  ["odin"] = "//",
-  ["lua"] = "--",
-}
-
 local file_greps = 
 {
   ["cpp"] = "**/*.cpp **/*.h **/*.hpp **/*.c",
@@ -55,71 +156,96 @@ local file_greps =
   ["odin"] = "**/*.odin",
 }
 
-local function_regex_str =
-{
-  ["cpp"] = {"\\v^((\\w[*&]?)+\\s+){1,3}(\\w(::)?)+\\(.*", "\\v(\\w(::)?)+\\(.*"},
-  ["lua"] = {"\\v^((\\w[*&]?)+\\s+){1,3}(\\w(::)?)+\\(.*", "\\v(\\w(::)?)+\\(.*"},
-  ["c"] = {"\\v^((\\w[*&]?)+\\s+){1,3}(\\w(::)?)+\\(.*", "\\v(\\w(::)?)+\\(.*"},
-  ["odin"] = {"\\v^(\\w+\\s+::\\s+(#\\w+\\s+){0,2}proc(\\s+\"\\w+\"\\s+)?\\()", "\\v^\\w+"},
-}
 
-local function set_build_command()
-  local on_input = function(input)
-    if input then
-      build_command = input
+local build_start_time;
+local building_in_progress = false
+
+---------------
+
+-- Functions --
+
+local function normalize_spaces(text)
+  return text:match("^%s*(.-)%s*$"):gsub("%s+", " ")
+end
+
+local function on_exit(obj)
+  
+  vim.schedule(function() 
+
+    local error_format = error_formats[language]
+
+    local output_lines = vim.split(obj.stdout, "\n", {plain = true})
+
+    local function build_done(success)
+      local elapsed = os.clock() - build_start_time; 
+      building_in_progress = false
+      if success then
+        print(string.format("Build SUCCESS - %.2f ms", elapsed * 1000))
+      else
+        print(string.format("Build FAILED - %.2f ms", elapsed * 1000))
+      end
     end
-  end
 
-  vim.ui.input({
-    prompt = "Command:",
-    default = build_command,
-  }, on_input)
-end
-
-local function set_run_command()
-  local on_input = function(input)
-    if input then
-      run_command = input
+    if #obj.stdout > 1 then
+      vim.fn.setqflist({}, " ", {
+        title = "Build",
+        lines = output_lines,
+        --efm = error_format,
+      })
+      if string.find(obj.stdout, "LINK : fatal error") ~= nil then
+        return build_done(false)
+      end
     end
-  end
 
-  vim.ui.input({
-    prompt = "Command:",
-    default = run_command,
-  }, on_input)
-end
-
-local function set_project_directory()
-  local on_input = function(input)
-    if input then
-      project_dir = input
+    local error_lines = vim.split(obj.stderr, "\n", {plain = true})
+    if #obj.stderr > 1 then
+      vim.fn.setqflist({}, " ", {
+        title = "Build",
+        lines = error_lines,
+        efm = error_format,
+      })
     end
+
+    -- bufnr != 0 seems like the only way to
+    -- check if there are errors in the list 
+    local qflist = vim.fn.getqflist()
+    for i = 1, #qflist do
+      if qflist[i].bufnr ~= 0 then
+        return build_done(false)
+      end
+    end
+
+    return build_done(true)
+
+  end)
+end
+
+local function build_project()
+  if building_in_progress then
+    return
   end
+  print("Building..");
+  building_in_progress = true
+  build_start_time = os.clock()
+  vim.system({"py", "build.py"}, {text = true}, on_exit);
+end
 
-  vim.ui.input({
-    prompt = "Directory:",
-    default = project_dir,
-  }, on_input)
-
+local function complete()
+  if vim.fn.pumvisible() == 1 then
+    return '<C-n>'
+  else
+    return '<C-p>'
+  end
 end
 
 
-local function set_project_settings()
-  set_build_command()
-  set_run_command()
-  set_project_directory()
+local function lsp_complete()
+  if vim.fn.pumvisible() == 1 then
+    return '<C-n>'
+  else
+    return '<C-x><C-o>'
+  end
 end
-
-
--- Disable anoying error messages that are somehow always off the window
-vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(
-vim.lsp.diagnostic.on_publish_diagnostics, {
-  virtual_text = false
-}
-)
-
-local qf_window_open = false
-local qf_prev_win;
 
 local function toggle_quickfix()
   if (qf_window_open) then
@@ -134,577 +260,247 @@ local function toggle_quickfix()
   end
 end
 
-
-local function build_project()
-  local lines = {""}
-  local bufnr = vim.api.nvim_win_get_buf(0)
-  local previous_dir = vim.fn.getcwd()
-
-  vim.cmd("cd " .. project_dir)
-  local file_type = vim.bo.filetype
-
-  print("Building...")
-
-  local function on_event(job_id, data, event)
-    if event == "stdout" or event == "stderr" then
-      if data then
-        vim.list_extend(lines, data)
-      end
-    end
-
-    error_format = error_formats[file_type]
-    print(error_format)
-
-    if event == "exit" then
-      vim.fn.setqflist({}, " ", {
-        title = "Build",
-        lines = lines,
-        efm = error_format,
-      })
-    end
-
-    -- bufnr != 0 seems like the only way to
-    -- check if there are errors in the list 
-    local qflist = vim.fn.getqflist()
-    for i = 1, #qflist do
-      if qflist[i].bufnr ~= 0 then
-        print("Build failed.")
-        vim.cmd("cd " .. previous_dir)
-        return
-      end
-    end
-    print("Build succeded.")
+local function move_left_no_block()
+  local col = vim.fn.col('.')
+  local line = vim.fn.line('.')
+  if col == 1 and line > 1 then
+    -- Move to the end of the previous line
+    return "k$"
   end
 
-  local job_id =
-  vim.fn.jobstart(
-  build_command,
-  {
-    on_stderr = on_event,
-    on_stdout = on_event,
-    on_exit = on_event,
-    stdout_buffered = true,
-    stderr_buffered = true,
-  }
-  )
-
-  vim.cmd("cd " .. previous_dir)
+  return "h"
 end
 
+local function custom_visual_yank()
+  local mode = vim.fn.visualmode();
+  if mode == "V" then
+    return "y"
+  end
+  return move_left_no_block() .. "y";
+end
 
-local function run_project_impl(type)
+local function custom_visual_cut()
+  local mode = vim.fn.visualmode();
+  if mode == "V" then
+    return "c"
+  end
+  return move_left_no_block() .. "c";
+end
 
-  local function on_event(job_id, data, event)
-    if event == "stdout" or event == "stderr" then
-      if (data) then
-        vim.fn.setqflist({}, "a", {
-          title = "Run",
-          lines = {data[1]},
-        })
-      end
+local function custom_visual_delete()
+  local mode = vim.fn.visualmode();
+  if mode == "V" then
+    return "d"
+  end
+  return move_left_no_block() .. "d";
+end
+
+local function custom_cnext()
+  local qflist = vim.fn.getqflist()
+  local error_count = 0;
+  for i = 1, #qflist do
+    -- Seems like only way to test if line is actually an error...
+    if qflist[i].lnum ~= 0 then
+      error_count = error_count + 1
+    end
+
+    if error_count > 1 then
+      break
     end
   end
 
-  if type == "normal" then
-    -- Clear the quickfix list
-    vim.fn.setqflist({}, " ", {
-      title = "Run",
-      lines = {},
-      --efm = "%f:%l:%c: error: %m",
-    })
-
-    vim.fn.jobstart(
-    run_command,
-    {
-      on_stderr = on_event,
-      on_stdout = on_event,
-    })
-  elseif type == "debug" then
-    vim.fn.jobstart("remedybg start-debugging")
+  if error_count > 1 then
+    return ":cnext<CR>"
+  else
+    return ":crewind<CR>"
   end
-
 end
 
-local function run_project_debug()
-  run_project_impl("debug")
+local function mark()
+  local a_mark = vim.api.nvim_get_mark("A", {})
+  if a_mark[1] == 0 and 
+    a_mark[2] == 0 and 
+    a_mark[3] == 0 and 
+    a_mark[4] == "" then
+    -- set mark
+    vim.cmd("mark A")
+  else
+    -- goto mark
+    vim.cmd("normal! 'A")
+    vim.cmd("delmarks A")
+  end
+end
+
+local function grep_internal(directory, pattern)
+
+  --if use_file_dir then
+    --directory = get_curr_buf_directory_path()
+  --end
+  if patter == "" then
+    print("ERROR - No search pattern for this grep.")
+  end
+
+  local on_input = function(input)
+    vim.cmd("silent! vimgrep " .. "\"" .. input .. "\"" .. directory .. pattern)
+  end
+
+  vim.ui.input({
+    prompt = "Project grep:",
+  }, on_input)
+end
+
+local function project_grep()
+  file_grep = file_greps[language]
+  grep_internal("", file_grep)
+end
+
+local function grep()
+  grep_internal("", "*.*")
+end
+
+local function valid_language(lang)
+  for i = 0, #lang_list do
+    if lang_list[i] == lang then
+      return true
+    end
+  end
+  return false
 end
 
 local function run_project()
-  run_project_impl("normal")
-end
-
-
-local function is_whitespace(char)
-  return char == ' ' or char == '\t'
-end
-
-local function comment_line()
-
-  local indent_regex = vim.regex("\\v^\\s*")
-  local comment_regex = vim.regex("\\v^\\s*\\/\\/")
-  local line = vim.api.nvim_get_current_line()
-
-  if comment_regex.match_str(comment_regex, line) then
-    line = string.gsub(line, "// ", "", 1)
-  else
-    local pre_string = ""
-
-    for i = 1, #line do
-      if (is_whitespace(string.sub(line, i, i))) then
-        pre_string = pre_string .. " "
-      else
-        break;
-      end
-    end
-
-    pre_string = pre_string .. "//"
-
-    local s, e = indent_regex.match_str(indent_regex, line)
-    if (e >= #pre_string - 2) then
-      line = pre_string .. string.sub(line, #pre_string-2, -1)
-    end
-  end
-  local cursor = vim.api.nvim_win_get_cursor(0)
-  --print(row)
-  vim.api.nvim_buf_set_lines(0, cursor[1]-1, cursor[1], true, {line});
-end
-
-local function comment_selection()
-  local start_pos = vim.api.nvim_buf_get_mark(0, '<')[1]
-  local end_pos = vim.api.nvim_buf_get_mark(0, '>')[1]
-  local lines = vim.api.nvim_buf_get_lines(0, start_pos-1, end_pos, false)
-
-  local indent_regex = vim.regex("\\v^\\s*")
-  local comment_regex = vim.regex("\\v^\\s*\\/\\/")
-
-  local is_commented = comment_regex.match_str(comment_regex, lines[1])
-
-  if (is_commented) then
-    for i = 1, #lines do
-      local s, e = comment_regex.match_str(comment_regex, lines[i])
-      if (e ~= 0) then
-        lines[i] = string.gsub(lines[i], "// ", "", 1)
-      end
-    end
-  else
-    local pre_string = ""
-
-    for i = 1, #lines[1] do
-      if (is_whitespace(string.sub(lines[1], i, i))) then
-        pre_string = pre_string .. " "
-      else
-        break;
-      end
-    end
-
-    pre_string = pre_string .. "//"
-
-    for i = 1, #lines do
-      local s, e = indent_regex.match_str(indent_regex, lines[i])
-      if (e >= #pre_string - 2) then
-        lines[i] = pre_string .. string.sub(lines[i], #pre_string-2, -1)
-      end
-    end
+  if app_exe == "" or project_dir == "" then 
+    return 
   end
 
-  vim.api.nvim_buf_set_lines(0, start_pos-1, end_pos, true, lines);
-  --vim.api.nvim_win_set_cursor(vim.api.nvim_get_current_win(), end_pos)
+  vim.uv.spawn(project_dir .. "/build/" .. app_exe, {hide = false, detached = true})
 end
 
-local function cursor_move_impl(row_delta, col_delta)
-  local pos = vim.api.nvim_win_get_cursor(0)
-  pos[1] = pos[1] + row_delta;
-  pos[2] = pos[2] + col_delta;
-  vim.api.nvim_win_set_cursor(vim.api.nvim_get_current_win(), pos) 
-end
-
-local function replace_in_range()
-
-end
-
-local function cursor_move_left()
-  cursor_move_impl(0, -1)
-end
-
-local function cursor_move_right()
-  cursor_move_impl(0, 1)
-end
-
-local function cursor_move_up()
-  cursor_move_impl(1, 0)
-end
-
-local function cursor_move_down()
-  cursor_move_impl(-1, 0)
-end
-
-local pair_map = 
-{
-  [string.byte("(")]  = ")" ,
-  [string.byte("{")]  = "}" ,
-  [string.byte("[")]  = "]" ,
-  [string.byte("\"")] = "\"",
-  [string.byte("\'")] = "\'",
-  [string.byte("<")]  = ">" ,
-}
-
-
-local function handle_pair(input, open, close)
-  local pos = vim.api.nvim_win_get_cursor(0)
-  local line = vim.api.nvim_get_current_line() 
-  local char = line.byte(line, pos[2]+1)
-  local input_char = string.byte(input)
-
-  if (char == input_char) then
-    return "<right>"
-  else
-    if (input == open) then
-      local next_char = line.byte(line, pos[2]+2)
-      if (next_char ~= string.byte(close)) then
-        return open .. close .. "<left>"
-      else
-        return input
-      end
-    else
-      return input
-    end
+local function raddbg_run_project()
+  if app_exe == "" or project_dir == "" then 
+    return 
   end
+
+
+  vim.uv.spawn("raddbg.exe", {
+    hide = false,
+    args = {"--project:" .. project_dir .. "/game", "--ipc", "launch_and_run", }, 
+    detached = true}
+    )
+  --vim.uv.spawn(project_dir .. "/build/" .. app_exe, {hide = false, detached = true})
 end
 
+local function raddbg_add_breakpoint()
+ -- `raddbg --ipc find_code_location \"c:/foo/bar/baz.c:123:1\"` `--ipc`
+  local current_file = vim.fn.expand('%:p')
+  local line = vim.fn.line('.')
+  local col = vim.fn.col('.')
+  print("add_breakpoint \"" .. current_file .. ":" .. line .. "\"")
 
-local function handle_open_paren() 
-  return handle_pair('(', '(', ')')
+  vim.uv.spawn("raddbg.exe", {
+    hide = false,
+    args = {
+      "--project:" .. project_dir .. "/game", 
+      "--ipc", 
+      "add_breakpoint:" .. "\"" .. current_file .. ":" .. line .. "\""
+      }, 
+    detached = true}
+    )
+ 
 end
 
-local function handle_close_paren() 
-  return handle_pair(')', '(', ')')
+local function raddbg_kill_all()
+
+  vim.uv.spawn("raddbg.exe", {
+    hide = false,
+    args = {
+      "--project:" .. project_dir .. "/game", 
+      "--ipc", 
+      "kill_all"
+      }, 
+    detached = true}
+    )
+ 
 end
 
-local function handle_open_brace() 
-  return handle_pair('{', '{', '}')
-end
+local function load_project()
+  local lines = vim.fn.readfile("./project.txt")
 
-local function handle_close_brace() 
-  return handle_pair('}', '{', '}')
-end
-
-local function handle_open_bracket() 
-  return handle_pair('[', '[', ']')
-end
-
-local function handle_close_bracket() 
-  return handle_pair(']', '[', ']')
-end
-
-local function handle_open_angle_bracket() 
-  return handle_pair('<', '<', '>')
-end
-
-local function handle_close_angle_bracket() 
-  return handle_pair('>', '<', '>')
-end
-
-local function handle_quotes()
-  return handle_pair('"', '"', '"')
-end
-
-local function handle_small_quotes()
-  return handle_pair('\'', '\'', '\'')
-end
-
-local function handle_enter()
-  local pos = vim.api.nvim_win_get_cursor(0)
-  local line = vim.api.nvim_get_current_line() 
-  local char = string.byte(line, pos[2])
-  local next_char = string.byte(line, pos[2]+1)
-  
-  if char      == string.byte("{") and
-     next_char == string.byte("}") then
-    return "<CR>" .. "<CR>" .. "<up>" .. "<esc>" .. "S"
-  else
-    return "<CR>"
+  if #lines == 0 then
+    print("No 'project.txt' found.")
+    return
   end
-end
 
-local function handle_backspace()
-  local pos = vim.api.nvim_win_get_cursor(0)
-  local line = vim.api.nvim_get_current_line() 
-  local char = string.byte(line, pos[2])
-  local next_char = string.byte(line, pos[2]+1)
-  
-  if (next_char) then
-    if pair_map[char] and
-       string.byte(pair_map[char]) == next_char then
-      return "<right>" .. "<backspace>" .. "<backspace>"
-    else
-      return "<backspace>"
-    end
-  else
-    return "<backspace>"
-  end
-end
+  --vim.uv.disable_stdio_inheritance()
 
-local function complete()
-  if vim.fn.pumvisible() == 1 then
-    return '<C-n>'
-  else
-    return '<C-x><C-o>'
-  end
-end
+  project_dir = vim.fn.getcwd();
 
-local function goto_function()
-
-  local line_count = vim.api.nvim_buf_line_count(0)
-  local lines = vim.api.nvim_buf_get_lines(0, 0, line_count, false)
-
-  local regex1 = vim.regex(function_regex_str[vim.bo.filetype][1]);
-  local regex2 = vim.regex(function_regex_str[vim.bo.filetype][2]);
-
-  local function_list = {}
-  local line_number_list = {}
-
-  local on_input = function(input)
-    if (input) then
-      for i = 1, #function_list do
-        if (function_list[i] == input) then
-          local line_number = line_number_list[i]
-          vim.api.nvim_win_set_cursor(vim.api.nvim_get_current_win(), {line_number, 0})
-          return
+  for i = 1, #lines do
+    --print(lines[i])
+    local parts = vim.split(lines[i], "%s+", {trimempty = true})
+    if #parts > 1 then
+      if parts[1] == "language" then
+        if valid_language(parts[2]) then
+          language = parts[2]
         end
+      elseif parts[1] == "app_exe" then
+        app_exe = parts[2];
       end
     end
   end
 
-  get_function_list = function(input, cmd_line, cursor_pos)
-    function_list = {}
-    line_number_list = {}
-    for i = 1, line_count do 
-      if (regex1.match_str(regex1, lines[i])) then
-        if (string.find(lines[i], input)) then
-          local name = string.sub(lines[i], regex2.match_str(regex2, lines[i]))
-          table.insert(function_list, name)
-          table.insert(line_number_list, i)
-        end
-      end
-    end
-    return function_list
-  end
-
-  vim.ui.input({
-    prompt = "Go To Function:",
-    completion = "customlist,v:lua.get_function_list",
-  }, on_input)
-
+  print("Loaded project settings 'project.txt'")
+  print("  language    - " .. language)
+  print("  app_exe     - " .. app_exe)
+  print("  project_dir - " .. project_dir)
 end
 
--- Map a parser to language
--- local ft_to_parser = require"nvim-treesitter.parsers".filetype_to_parsername
--- ft_to_parser.cpp = "c"
+vim.api.nvim_create_user_command("LoadProject",          load_project, {})
+vim.api.nvim_create_user_command("RunProject",           run_project,  {})
+vim.api.nvim_create_user_command("RaddbgRun",            raddbg_run_project,  {})
+vim.api.nvim_create_user_command("RaddbgAddBreakpoint",  raddbg_add_breakpoint,  {})
 
--- Treesitter
-require'nvim-treesitter.configs'.setup {
-   --A list of parser names, or "all"
-  ensure_installed = { "c", "cpp", "rust" },
-  ignore_install = { "lua" },
-   --Install parsers synchronously (only applied to `ensure_installed`)
-  sync_install = false,
+------------------
 
-  -- Automatically install missing parsers when entering buffer
-  -- Recommendation: set to false if you don't have `tree-sitter` CLI installed locally
-  auto_install = false,
-  indent = {
-    enable = false
-  },
+-- Startup functions --
 
-  incremental_search = {
-    enable = false,
-  },
+load_project()
 
-  highlight = {
-    disable = {"lua"},
-    enable = true,
-    -- enable regex highlighting
-    additional_vim_regex_highlighting = {"lua"},
-  },
-}
+------------------
 
-require"lsp_signature".setup {
-  hi_parameter="IncSearch",
-}
-local parser_mapping = require("nvim-treesitter.parsers")
-parser_mapping.cpp = "c"
+-- Key mappings --
 
-local function grep_global()
-  local on_input = function(input)
-    vim.cmd("vimgrep " .. "\"" .. input .. "\"" .. "*.*")
-  end
-  vim.ui.input({
-    prompt = "Grep:",
-  }, on_input)
-end
-
-local function get_curr_buf_directory_path()
-  local bufnr = vim.api.nvim_get_current_buf()
-  local file_path = vim.api.nvim_buf_get_name(bufnr)
-  local directory_path = vim.fn.fnamemodify(file_path, ":h")
-  return directory_path;
-end
-
-local function grep_project_internal(use_file_dir)
-  local directory = ""
-
-  if use_file_dir then
-    directory = get_curr_buf_directory_path()
-  end
-
-  local on_input = function(input)
-      file_grep = file_greps[vim.bo.filetype]
-      if file_grep ~= nil then
-        vim.cmd("vimgrep " .. "\"" .. input .. "\"" .. directory .. file_grep)
-      else
-        vim.cmd("vimgrep " .. "\"" .. input .. "\"" .. directory .. "*.*")
-        -- vim.api.nvim_err_writeln("N")
-      end
-  end
-
-  vim.ui.input({
-    prompt = "Grep:",
-  }, on_input)
-end
-
-local function grep_project_file_dir()
-  grep_project_internal(true)
-end
-
-local function grep_project_cwd()
-  grep_project_internal(false)
-end
-
-local function set_cpp_buffer_options()
-  vim.bo.complete = "i"
-end
-
-vim.api.nvim_create_autocmd(
-"FileType",
-{
-  pattern = {"cpp", "h", "cc", "hpp"},
-  callback = set_cpp_buffer_options
-}
-)
-
--- Options
--- vim.cmd[[set scl=no]]
-vim.o.signcolumn="no"
-
-vim.opt.relativenumber = false
-vim.opt.gdefault = true
-vim.opt.tabstop = 2
-vim.opt.softtabstop = 2
-vim.opt.shiftwidth = 2
-vim.opt.expandtab = true
-vim.opt.makeprg = "sh build.sh"
-vim.opt.autowrite = true
-vim.opt.errorformat = "%f:%l:%c: %m"
-
-vim.opt.swapfile = false
-vim.opt.backup = false
-vim.opt.undofile = true
-vim.opt.undodir = vim.env.HOME .. "/undodir"
-vim.opt.hlsearch = true
-vim.opt.wrap = true
-vim.opt.linebreak = true
-vim.opt.breakindent = true
-vim.opt.showbreak = "››"
-vim.opt.shellpipe = ">%s 2>&1" 
-
-vim.opt.scrolloff = 8
-vim.opt.updatetime = 50
-vim.opt.guifont = {"JuliaMono:h10.4"}
-
--- Floaterm
-vim.g.floaterm_position = "bottomright"
-vim.g.floaterm_wintype = "float"
-vim.g.floaterm_height = 0.5
-
--- Commands
---
-vim.api.nvim_create_user_command("CommentSelection", comment_selection, {range = true})
-vim.api.nvim_create_user_command("SetRunCommand", set_run_command, {})
-vim.api.nvim_create_user_command("SetBuildCommand", set_build_command, {})
-vim.api.nvim_create_user_command("SetProjectDirectory", set_project_directory, {})
-vim.api.nvim_create_user_command("SetProjectSettings", set_project_settings, {})
-
--- Keybinds
 vim.g.mapleader = " "
-vim.keymap.set("n", "<A-e>", ":cnext<CR>")
+vim.keymap.set("n", "<A-e>", custom_cnext, {expr = true})
 vim.keymap.set("n", "<A-q>", ":cprevious<CR>")
-vim.keymap.set("n", "R", vim.cmd.redo)
-vim.keymap.set("n", "p", "P")
-vim.keymap.set("n", "P", "\"+p")
-vim.keymap.set("n", "{", ":<C-r>0")
-vim.keymap.set("n", "}", ":<C-r>+")
 vim.keymap.set("n", "<A-j>", "<C-d>")
 vim.keymap.set("n", "<A-k>", "<C-u>")
-vim.keymap.set("n", "<A-s>", ":w<CR>")
 vim.keymap.set("n", "<A-w>", "<C-w>w")
-vim.keymap.set("n", "<C-f>", "*")
+vim.keymap.set("n", "<C-i>", ":b ")
+vim.keymap.set("n", "<C-o>", ":e **/*")
+vim.keymap.set("n", "<A-s>", ":w<CR>")
+vim.keymap.set("n", "p", "P")
+vim.keymap.set("n", "P", "\"+p")
 vim.keymap.set("n", "<F7>", ":e " .. config_file)
-vim.keymap.set("n", "<leader>d", vim.cmd.Ex)
-vim.keymap.set("n", "<A-f>", ":e **/*")
-vim.keymap.set("n", "<A-F>", ":e %:h/**/*")
-vim.keymap.set("n", "<A-b>", ":b ")
-vim.keymap.set("n", "<F3>", grep_project_cwd)
-vim.keymap.set("n", "<S-F3>", grep_project_file_dir)
-vim.keymap.set("n", "<C-F3>", grep_global)
+vim.keymap.set("n", "R", vim.cmd.redo)
 vim.keymap.set("n", "`", toggle_quickfix)
---vim.keymap.set("n", "<C-t>", ":FloatermToggle<CR>")
-vim.keymap.set("n", "<A-p>", goto_function)
-vim.keymap.set("n", "<A-m>", build_project)
-vim.keymap.set("n", "<F4>", run_project)
-vim.keymap.set("n", "<F5>", run_project_debug)
-vim.keymap.set("n", "<S-F5>", ":!remedybg stop-debugging<CR>")
-vim.keymap.set("n", "<C-r>", "<C-q>");
-vim.keymap.set("n", ",", "@m");
-vim.keymap.set("n", "+", "vi{=");
-vim.keymap.set("n", "<C-c>", comment_line);
-vim.keymap.set("n", "m", "mm")
-vim.keymap.set("n", "M", "g'm")
-vim.keymap.set("n", "<C-o>", ":bnext<CR>")
-vim.keymap.set("n", "<C-i>", ":bprevious<CR>")
-vim.keymap.set("n", "<tab>", "")
+vim.keymap.set("n", "<C-f>", "*")
 vim.keymap.set("n", "<C-n>", "<C-^>")
-vim.keymap.set("n", "<A-BS>", "ciw")
+vim.keymap.set("n", "<A-m>", build_project)
+vim.keymap.set("n", "<S-F3>", grep)
+vim.keymap.set("n", "m", mark)
+vim.keymap.set("n", "<F3>", project_grep)
+vim.keymap.set("n", "<F5>", run_project)
+vim.keymap.set("n", "<F6>", raddbg_run_project)
+vim.keymap.set("n", "<F8>", raddbg_add_breakpoint)
+vim.keymap.set("n", "<S-F6>", raddbg_kill_all)
 
-vim.keymap.set("v", "Y", "\"+y")
-vim.keymap.set("v", "s", ":s/");
-vim.keymap.set("v", "<C-c>", ":CommentSelection<CR>")
+vim.keymap.set("v", "y", custom_visual_yank, {expr = true})
+vim.keymap.set("v", "c", custom_visual_cut, {expr = true})
+vim.keymap.set("v", "d", custom_visual_delete, {expr = true})
 
+vim.keymap.set("i", "<C-t>", lsp_complete, {expr = true})
 vim.keymap.set("i", "<tab>", complete, {expr = true})
-vim.keymap.set("i", "<A-BS>", "<C-w>")
-vim.keymap.set("i", "(", handle_open_paren, {expr = true})
-vim.keymap.set("i", ")", handle_close_paren, {expr = true})
-vim.keymap.set("i", "{", handle_open_brace, {expr = true})
-vim.keymap.set("i", "}", handle_close_brace, {expr = true})
-vim.keymap.set("i", "[", handle_open_bracket, {expr = true})
-vim.keymap.set("i", "]", handle_close_bracket, {expr = true})
---vim.keymap.set("i", "<", handle_open_angle_bracket, {expr = true})
---vim.keymap.set("i", ">", handle_close_angle_bracket, {expr = true})
-vim.keymap.set("i", "\"", handle_quotes, {expr = true})
-vim.keymap.set("i", "\'", handle_small_quotes, {expr = true})
-vim.keymap.set("i", "<backspace>", handle_backspace, {expr = true})
-vim.keymap.set("i", "<CR>", handle_enter, {expr = true})
+vim.keymap.set("i", "<C-BS>", "<C-w>")
+vim.keymap.set("i", "<C-H>", "<C-w>")
 
--- Plugins
-vim.cmd [[packadd packer.nvim]]
-
-return require('packer').startup(function(use)
-  use 'neovim/nvim-lspconfig' -- Configurations for Nvim LSP
-  use 'wbthomason/packer.nvim'
-  use "ray-x/lsp_signature.nvim"
-  use 'nvim-treesitter/nvim-treesitter'
-  use 'kalvinpearce/ShaderHighlight'
-  use 'Tetralux/odin.vim'
-  use 'sadotsoy/darkforce-vim'
-  use 'teloe/bland.vim'
-end)
-
+------------------
