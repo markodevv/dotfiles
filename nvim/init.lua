@@ -12,6 +12,10 @@ require("lsp_settings")
 -- [x] Make completion prioritize closer words
 -- [ ] Make completion work on improted packages
 -- [ ] Comment/Uncomment
+-- [x] Replace in range
+-- [ ] Replace in file
+-- [ ] Query replace
+-- [x] Goto file in current buffer directory
 
 -- Package manager setup --
 
@@ -47,9 +51,10 @@ local on_attach = function(client, bufnr)
     floating_window = true, 
     wrap = true,
     hint_enable = false,
+    floating_window_off_y = 0,
     handler_opts = {
-      border = "none"
-    }
+      border = "rounded"
+    },
   }, bufnr)
 
   -- Enable completion triggered by <c-x><c-o>
@@ -72,6 +77,7 @@ local on_attach = function(client, bufnr)
   --vim.keymap.set('n', '<space>ca', vim.lsp.buf.code_action, bufopts)
   vim.keymap.set('n', 'gr', vim.lsp.buf.references, bufopts)
   --vim.keymap.set('n', '<space>f', function() vim.lsp.buf.format { async = true } end, bufopts)
+  --
 end
 
 local lsp_flags = {
@@ -102,12 +108,26 @@ config_file = "~/AppData/Local/nvim/init.lua<CR>"
 
 -- Options --
 
+if vim.g.neovide then
+  vim.o.guifont = "Liberation Mono:h10" vim.g.neovide_scroll_animation_length = 0.3
+  vim.g.neovide_transparency = 1.0
+  vim.g.neovide_hide_mouse_when_typing = true
+  vim.g.neovide_refresh_rate = 30 
+  vim.g.neovide_refresh_rate_idle = 5
+  vim.g.neovide_scroll_animation_length = 0
+  vim.g.neovide_profiler = false
+  vim.g.neovide_fullscreen = false
+  vim.g.neovide_touch_drag_timeout = 0.17
+  vim.g.neovide_cursor_animation_length= 0.01
+  vim.g.neovide_cursor_trail_size = 0.2
+end
+
 vim.g.mapleader = " "
 vim.g.maplocalleader = "\\"
 vim.o.completeopt="menu"
 vim.o.signcolumn="no"
-vim.opt.complete = '.,w'
-vim.opt.pumheight = 4 
+vim.opt.complete = '.,w,b'
+vim.opt.pumheight = 8 
 vim.opt.relativenumber = false
 vim.opt.gdefault = true
 vim.opt.tabstop = 2
@@ -119,8 +139,8 @@ vim.opt.undofile = true
 vim.opt.undodir = vim.env.HOME .. "/undodir"
 vim.opt.hlsearch = false
 vim.opt.scrolloff = 8
-vim.opt.cmdheight = 2
-vim.cmd.colorscheme("retrobox");
+vim.opt.cmdheight = 1
+vim.cmd.colorscheme("black");
 
 ------------------
 
@@ -156,6 +176,16 @@ local file_greps =
   ["odin"] = "**/*.odin",
 }
 
+local function_regex =
+{
+  ["cpp"] = {"\\v^((\\w[*&]?)+\\s+){1,3}(\\w(::)?)+\\(.*", "\\v(\\w(::)?)+\\(.*"},
+  ["lua"] = {"\\v^((\\w[*&]?)+\\s+){1,3}(\\w(::)?)+\\(.*", "\\v(\\w(::)?)+\\(.*"},
+  ["c"] = {"\\v^((\\w[*&]?)+\\s+){1,3}(\\w(::)?)+\\(.*", "\\v(\\w(::)?)+\\(.*"},
+  ["odin"] = {"\\v^(\\w+\\s+::\\s+(#\\w+\\s+){0,2}proc(\\s+\"\\w+\"\\s+)?\\()", "\\v^\\w+"},
+}
+
+
+local filetype_only_complete = true;
 
 local build_start_time;
 local building_in_progress = false
@@ -163,6 +193,161 @@ local building_in_progress = false
 ---------------
 
 -- Functions --
+
+local function custom_complete_func(find_start, base)
+  if find_start == 1 then
+    local line = vim.api.nvim_get_current_line()
+    local col = vim.api.nvim_win_get_cursor(0)[2]
+    local start = col
+    
+    while start > 0 and string.match(string.sub(line, start, start), '[%a_]') do
+      start = start - 1
+    end
+
+    return start
+  else
+    local max_matches = 10;
+    local matches = {};
+    local filetype = vim.bo.filetype;
+
+    -- Current buffer completion
+    local cur_line = vim.api.nvim_win_get_cursor(0)[1] - 1;  -- Convert to 0-based
+    local total_lines = vim.api.nvim_buf_line_count(0)
+    local pattern = '[^a-zA-Z0-9_](' .. base .. '[%w_]+)'
+
+    local up_line = cur_line;
+    local down_line = cur_line + 1;
+
+    while #matches < max_matches and (up_line >= 0  or down_line < total_lines) do
+      -- Search up first
+      local quit = false;
+      if up_line >= 0 then
+        local line = vim.api.nvim_buf_get_lines(0, up_line, up_line + 1, false)[1]
+        for word in string.gmatch(line, pattern) do
+          table.insert(matches, word);
+          if #matches >= max_matches then
+            break;
+          end
+        end
+        up_line = up_line - 1;
+      end
+      -- Then search down
+      if down_line < total_lines then
+        local line = vim.api.nvim_buf_get_lines(0, down_line, down_line + 1, false)[1]
+        for word in string.gmatch(line, pattern) do
+          table.insert(matches, word);
+          if #matches >= max_matches then
+            break;
+          end
+        end
+        down_line = down_line + 1;
+      end
+    end
+
+    if #matches < max_matches then
+      for _, win in ipairs(vim.api.nvim_list_wins()) do
+        local buf = vim.api.nvim_win_get_buf(win)
+        local buf_filetype = vim.api.nvim_buf_get_option(buf, "filetype")
+        if filetype_only_complete == false or (buf_filetype == filetype) then
+          if buf ~= vim.api.nvim_get_current_buf() then
+            local win_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+            for _, line in ipairs(win_lines) do
+              local word = string.match(line, pattern)
+              if word then
+                table.insert(matches, word);
+                if #matches >= max_matches then
+                  return matches;
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+
+    if #matches < max_matches then
+      local finished = false;
+      for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+        local buf_filetype = vim.api.nvim_buf_get_option(buf, "filetype")
+        if filetype_only_complete == false or (buf_filetype == filetype) then
+          if buf ~= vim.api.nvim_get_current_buf() then
+            local buf_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+            for _, line in ipairs(buf_lines) do
+              for word in string.gmatch(line, pattern) do
+                table.insert(matches, word);
+                if #matches >= max_matches then
+                  return matches;
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+
+    return matches;
+  end
+end
+
+_G.custom_complete = custom_complete_func
+
+vim.api.nvim_create_autocmd("BufEnter", {
+  pattern = "*",
+  callback = function()
+    vim.bo.completefunc = "v:lua.custom_complete"
+  end,
+})
+
+local function goto_function()
+  local line_count = vim.api.nvim_buf_line_count(0)
+  local lines = vim.api.nvim_buf_get_lines(0, 0, line_count, false)
+
+  local regex = function_regex[vim.bo.filetype];
+
+  if regex == nil then
+    print("Goto function for this language not supported.\n")
+    return
+  end
+
+  local regex_pattern0 = vim.regex(regex[1])
+  local regex_pattern1 = vim.regex(regex[2])
+
+  local function_list = {}
+  local line_number_list = {}
+
+  local on_input = function(input)
+    if input then
+      for i = 1, #function_list do
+        if (function_list[i] == input) then
+          local line_number = line_number_list[i]
+          vim.api.nvim_win_set_cursor(vim.api.nvim_get_current_win(), {line_number, 0})
+          return
+        end
+      end
+    end
+  end
+
+  get_function_list = function(input, cmd_line, cursor_pos)
+    function_list = {}
+    line_number_list = {}
+    for i = 1, line_count do 
+      if (regex_pattern0.match_str(regex_pattern0, lines[i])) then
+        if (string.find(lines[i], input)) then
+          local name = string.sub(lines[i], regex_pattern1.match_str(regex_pattern0, lines[i]))
+          table.insert(function_list, name)
+          table.insert(line_number_list, i)
+        end
+      end
+    end
+    return function_list
+  end
+
+  vim.ui.input({
+    prompt = "Go To Function:",
+    completion = "customlist,v:lua.get_function_list",
+  }, on_input)
+
+end
 
 local function normalize_spaces(text)
   return text:match("^%s*(.-)%s*$"):gsub("%s+", " ")
@@ -192,7 +377,8 @@ local function on_exit(obj)
         lines = output_lines,
         --efm = error_format,
       })
-      if string.find(obj.stdout, "LINK : fatal error") ~= nil then
+      if string.find(obj.stdout, "LINK : fatal error") or 
+        string.find(obj.stdout, ": error LNK") then
         return build_done(false)
       end
     end
@@ -204,6 +390,10 @@ local function on_exit(obj)
         lines = error_lines,
         efm = error_format,
       })
+    end
+
+    if language == "odin" and string.find(obj.stderr, "Syntax Error:") then
+      return build_done(false)
     end
 
     -- bufnr != 0 seems like the only way to
@@ -234,7 +424,7 @@ local function complete()
   if vim.fn.pumvisible() == 1 then
     return '<C-n>'
   else
-    return '<C-p>'
+    return '<C-x><C-u>'
   end
 end
 
@@ -423,9 +613,9 @@ local function raddbg_kill_all()
 end
 
 local function load_project()
-  local lines = vim.fn.readfile("./project.txt")
+  local ok, lines = pcall(vim.fn.readfile, "./project.txt")
 
-  if #lines == 0 then
+  if ok == false then
     print("No 'project.txt' found.")
     return
   end
@@ -458,12 +648,13 @@ vim.api.nvim_create_user_command("LoadProject",          load_project, {})
 vim.api.nvim_create_user_command("RunProject",           run_project,  {})
 vim.api.nvim_create_user_command("RaddbgRun",            raddbg_run_project,  {})
 vim.api.nvim_create_user_command("RaddbgAddBreakpoint",  raddbg_add_breakpoint,  {})
-
 ------------------
 
 -- Startup functions --
 
+vim.cmd(":cd C:/work/project_")
 load_project()
+vim.cmd("syntax on")
 
 ------------------
 
@@ -484,6 +675,7 @@ vim.keymap.set("n", "<F7>", ":e " .. config_file)
 vim.keymap.set("n", "R", vim.cmd.redo)
 vim.keymap.set("n", "`", toggle_quickfix)
 vim.keymap.set("n", "<C-f>", "*")
+vim.keymap.set("n", "<A-F>", ":e %:h/**/*")
 vim.keymap.set("n", "<C-n>", "<C-^>")
 vim.keymap.set("n", "<A-m>", build_project)
 vim.keymap.set("n", "<S-F3>", grep)
@@ -493,14 +685,19 @@ vim.keymap.set("n", "<F5>", run_project)
 vim.keymap.set("n", "<F6>", raddbg_run_project)
 vim.keymap.set("n", "<F8>", raddbg_add_breakpoint)
 vim.keymap.set("n", "<S-F6>", raddbg_kill_all)
+vim.keymap.set("n", "<C-r>", "<C-q>");
+vim.keymap.set("n", "<space>d", ":Explore<CR>")
+vim.keymap.set("n", "<A-p>", goto_function)
 
 vim.keymap.set("v", "y", custom_visual_yank, {expr = true})
 vim.keymap.set("v", "c", custom_visual_cut, {expr = true})
 vim.keymap.set("v", "d", custom_visual_delete, {expr = true})
+vim.keymap.set("v", "s", ":s/");
 
 vim.keymap.set("i", "<C-t>", lsp_complete, {expr = true})
 vim.keymap.set("i", "<tab>", complete, {expr = true})
 vim.keymap.set("i", "<C-BS>", "<C-w>")
 vim.keymap.set("i", "<C-H>", "<C-w>")
+
 
 ------------------
