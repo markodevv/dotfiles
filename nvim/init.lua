@@ -109,12 +109,12 @@ config_file = "~/AppData/Local/nvim/init.lua<CR>"
 -- Options --
 
 if vim.g.neovide then
-  vim.o.guifont = "Liberation Mono:h10" vim.g.neovide_scroll_animation_length = 0.3
+  vim.o.guifont = "Liberation Mono:h10" 
   vim.g.neovide_transparency = 1.0
   vim.g.neovide_hide_mouse_when_typing = true
-  vim.g.neovide_refresh_rate = 30 
+  --vim.g.neovide_refresh_rate= 30 
   vim.g.neovide_refresh_rate_idle = 5
-  vim.g.neovide_scroll_animation_length = 0
+  vim.g.neovide_scroll_animation_length = 0.1
   vim.g.neovide_profiler = false
   vim.g.neovide_fullscreen = false
   vim.g.neovide_touch_drag_timeout = 0.17
@@ -141,6 +141,13 @@ vim.opt.hlsearch = false
 vim.opt.scrolloff = 8
 vim.opt.cmdheight = 1
 vim.cmd.colorscheme("black");
+vim.filetype.add({
+  pattern = {
+    [".*/*vs.hlsl"] = "c",
+    [".*/*fs.hlsl"] = "c",
+    [".*/*hlsli"] = "c",
+  }
+})
 
 ------------------
 
@@ -166,14 +173,14 @@ local error_formats =
   ["cpp"] = "%f(%l\\,%c): error %m", -- msbuild
   -- ["cpp"] = "%f:%l:%c: error: %m", -- clang
   ["c"] = "%f:%l:%c: error: %m", -- clang
-  ["odin"] = "%f(%l:%c) %m",
+  ["odin"] = "%f(%l:%c) Error: %m",
 }
 
 local file_greps = 
 {
   ["cpp"] = "**/*.cpp **/*.h **/*.hpp **/*.c",
   ["c"] = "**/*.cpp **/*.h **/*.hpp **/*.c",
-  ["odin"] = "**/*.odin",
+  ["odin"] = "**/*.odin **/*.hlsl **/*.hlsli",
 }
 
 local function_regex =
@@ -190,9 +197,130 @@ local filetype_only_complete = true;
 local build_start_time;
 local building_in_progress = false
 
+local pair_map = 
+{
+  [string.byte("(")]  = ")" ,
+  [string.byte("{")]  = "}" ,
+  [string.byte("[")]  = "]" ,
+  [string.byte("\"")] = "\"",
+  [string.byte("\'")] = "\'",
+  [string.byte("<")]  = ">" ,
+}
+local recording_macro = false
+
+
 ---------------
 
 -- Functions --
+--
+local function repeat_macro()
+  vim.api.nvim_feedkeys("@a", 'n', true)
+end
+
+
+local function record_macro()
+  if recording_macro == false then
+    recording_macro = true
+    return "qa"
+  else
+    recording_macro = false
+    return "q"
+  end
+end
+
+local function indent_scope()
+  local pos = vim.api.nvim_win_get_cursor(0)
+  local line = vim.api.nvim_get_current_line() 
+  local char = line.byte(line, pos[2]+1)
+
+  if string.byte('{') == char then
+    vim.api.nvim_feedkeys("=i{", 'n', true)
+  end
+  if string.byte('}') == char then
+    vim.api.nvim_feedkeys("=i}", 'n', true)
+  end
+
+end
+
+
+local function handle_pair(input, open, close)
+  local pos = vim.api.nvim_win_get_cursor(0)
+  local line = vim.api.nvim_get_current_line() 
+  local char = line.byte(line, pos[2]+1)
+  local input_char = string.byte(input)
+  local cmd = ""
+
+  if (char == input_char) then
+    cmd = vim.api.nvim_replace_termcodes("<Right>", true, false, true)
+  else
+    if (input == open) then
+      local next_char = line.byte(line, pos[2]+2)
+      if (next_char ~= string.byte(close)) then
+        cmd = open .. close .. vim.api.nvim_replace_termcodes("<Left>", true, false, true)
+      else
+        cmd = close
+      end
+    else
+      cmd = input
+    end
+  end
+
+  vim.api.nvim_feedkeys(cmd, 'n', true)
+end
+
+local function handle_enter()
+  local pos = vim.api.nvim_win_get_cursor(0)
+  local line = vim.api.nvim_get_current_line() 
+  local char = string.byte(line, pos[2])
+  local next_char = string.byte(line, pos[2]+1)
+  local cmd = ""
+
+  local cr = vim.api.nvim_replace_termcodes("<CR>", true, false, true) 
+
+  if char      == string.byte("{") and
+     next_char == string.byte("}") then
+    local indent = vim.api.nvim_replace_termcodes('<home>', true, false, true)
+    local escape = vim.api.nvim_replace_termcodes('<esc>', true, false, true)
+    local up = vim.api.nvim_replace_termcodes("<up>", true, false, true) 
+    cmd = cr .. cr .. up .. escape .. 'S'
+  else
+    cmd = cr
+  end
+
+  vim.api.nvim_feedkeys(cmd, 'n', true)
+end
+
+local function handle_open_paren() 
+  handle_pair('(', '(', ')')
+end
+
+local function handle_close_paren() 
+  handle_pair(')', '(', ')')
+end
+
+local function handle_open_brace() 
+  handle_pair('{', '{', '}')
+end
+
+local function handle_close_brace() 
+  handle_pair('}', '{', '}')
+end
+
+local function handle_open_bracket() 
+  handle_pair('[', '[', ']')
+end
+
+local function handle_close_bracket() 
+  handle_pair(']', '[', ']')
+end
+
+local function handle_quotes()
+  handle_pair('"', '"', '"')
+end
+
+local function handle_small_quotes()
+  return handle_pair('\'', '\'', '\'')
+end
 
 local function custom_complete_func(find_start, base)
   if find_start == 1 then
@@ -214,15 +342,33 @@ local function custom_complete_func(find_start, base)
     local cur_line = vim.api.nvim_win_get_cursor(0)[1] - 1;  -- Convert to 0-based
     local total_lines = vim.api.nvim_buf_line_count(0)
     local pattern = '[^a-zA-Z0-9_](' .. base .. '[%w_]+)'
+    local start_of_line_pattern = '^' .. base .. '[%w_]+'
+
 
     local up_line = cur_line;
     local down_line = cur_line + 1;
 
+    local start_of_line_match = function(line, pattern)
+      local capture = string.match(line, pattern);
+      if capture then
+        print(capture)
+      end
+      return capture;
+    end
+
     while #matches < max_matches and (up_line >= 0  or down_line < total_lines) do
       -- Search up first
-      local quit = false;
       if up_line >= 0 then
         local line = vim.api.nvim_buf_get_lines(0, up_line, up_line + 1, false)[1]
+
+        local start_word = start_of_line_match(line, start_of_line_pattern)
+        if start_word ~= nil then table.insert(matches, start_word) end
+
+        for word in string.gmatch(line, start_of_line_pattern) do
+          table.insert(matches, word);
+          break;
+        end
+
         for word in string.gmatch(line, pattern) do
           table.insert(matches, word);
           if #matches >= max_matches then
@@ -234,6 +380,10 @@ local function custom_complete_func(find_start, base)
       -- Then search down
       if down_line < total_lines then
         local line = vim.api.nvim_buf_get_lines(0, down_line, down_line + 1, false)[1]
+
+        local start_word = start_of_line_match(line, start_of_line_pattern)
+        if start_word ~= nil then table.insert(matches, start_word) end
+
         for word in string.gmatch(line, pattern) do
           table.insert(matches, word);
           if #matches >= max_matches then
@@ -246,14 +396,19 @@ local function custom_complete_func(find_start, base)
 
     if #matches < max_matches then
       for _, win in ipairs(vim.api.nvim_list_wins()) do
+
         local buf = vim.api.nvim_win_get_buf(win)
         local buf_filetype = vim.api.nvim_buf_get_option(buf, "filetype")
+
         if filetype_only_complete == false or (buf_filetype == filetype) then
           if buf ~= vim.api.nvim_get_current_buf() then
             local win_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
             for _, line in ipairs(win_lines) do
-              local word = string.match(line, pattern)
-              if word then
+
+              local start_word = start_of_line_match(line, start_of_line_pattern)
+              if start_word ~= nil then table.insert(matches, start_word) end
+
+              for word in string.gmatch(line, pattern) do
                 table.insert(matches, word);
                 if #matches >= max_matches then
                   return matches;
@@ -268,11 +423,17 @@ local function custom_complete_func(find_start, base)
     if #matches < max_matches then
       local finished = false;
       for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+
         local buf_filetype = vim.api.nvim_buf_get_option(buf, "filetype")
+
         if filetype_only_complete == false or (buf_filetype == filetype) then
           if buf ~= vim.api.nvim_get_current_buf() then
             local buf_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
             for _, line in ipairs(buf_lines) do
+
+              local start_word = start_of_line_match(line, start_of_line_pattern)
+              if start_word ~= nil then table.insert(matches, start_word) end
+
               for word in string.gmatch(line, pattern) do
                 table.insert(matches, word);
                 if #matches >= max_matches then
@@ -417,7 +578,7 @@ local function build_project()
   print("Building..");
   building_in_progress = true
   build_start_time = os.clock()
-  vim.system({"py", "build.py"}, {text = true}, on_exit);
+  vim.system({build_cmd}, {text = true}, on_exit);
 end
 
 local function complete()
@@ -507,18 +668,17 @@ local function custom_cnext()
 end
 
 local function mark()
-  local a_mark = vim.api.nvim_get_mark("A", {})
-  if a_mark[1] == 0 and 
-    a_mark[2] == 0 and 
-    a_mark[3] == 0 and 
-    a_mark[4] == "" then
-    -- set mark
-    vim.cmd("mark A")
-  else
-    -- goto mark
-    vim.cmd("normal! 'A")
-    vim.cmd("delmarks A")
-  end
+  local buf = vim.api.nvim_get_current_buf()
+  local line, col = unpack(vim.api.nvim_win_get_cursor(0))
+  vim.api.nvim_buf_set_mark(buf, "a", line, col, {})
+end
+
+local function goto_mark()
+  local buf = vim.api.nvim_get_current_buf()
+  local mark = vim.api.nvim_buf_get_mark(buf, "a")
+
+  -- Jump to the mark's position
+  vim.api.nvim_win_set_cursor(0, { mark[1], mark[2] })
 end
 
 local function grep_internal(directory, pattern)
@@ -565,18 +725,27 @@ local function run_project()
   vim.uv.spawn(project_dir .. "/build/" .. app_exe, {hide = false, detached = true})
 end
 
+local function raddbg_open()
+  if app_exe == "" or project_dir == "" then 
+    print("Can't ope Raddbg, no project file loaded\n")
+    return 
+  end
+
+  vim.uv.spawn("raddbg.exe", {
+    hide = false,
+    args = {"--project:" .. project_dir .. "/project.raddbg"}, 
+    detached = true})
+end
+
 local function raddbg_run_project()
   if app_exe == "" or project_dir == "" then 
     return 
   end
 
-
   vim.uv.spawn("raddbg.exe", {
     hide = false,
-    args = {"--project:" .. project_dir .. "/game", "--ipc", "launch_and_run", }, 
-    detached = true}
-    )
-  --vim.uv.spawn(project_dir .. "/build/" .. app_exe, {hide = false, detached = true})
+    args = {"--ipc", "launch_and_run", }, 
+    detached = true})
 end
 
 local function raddbg_add_breakpoint()
@@ -589,7 +758,6 @@ local function raddbg_add_breakpoint()
   vim.uv.spawn("raddbg.exe", {
     hide = false,
     args = {
-      "--project:" .. project_dir .. "/game", 
       "--ipc", 
       "add_breakpoint:" .. "\"" .. current_file .. ":" .. line .. "\""
       }, 
@@ -620,12 +788,9 @@ local function load_project()
     return
   end
 
-  --vim.uv.disable_stdio_inheritance()
-
   project_dir = vim.fn.getcwd();
 
   for i = 1, #lines do
-    --print(lines[i])
     local parts = vim.split(lines[i], "%s+", {trimempty = true})
     if #parts > 1 then
       if parts[1] == "language" then
@@ -634,17 +799,23 @@ local function load_project()
         end
       elseif parts[1] == "app_exe" then
         app_exe = parts[2];
+      elseif parts[1] == "build_cmd" then
+        build_cmd = parts[2];
       end
     end
   end
+
+  --raddbg_open();
 
   print("Loaded project settings 'project.txt'")
   print("  language    - " .. language)
   print("  app_exe     - " .. app_exe)
   print("  project_dir - " .. project_dir)
+  print("  build_cmd   - " .. build_cmd)
 end
 
 vim.api.nvim_create_user_command("LoadProject",          load_project, {})
+vim.api.nvim_create_user_command("LaunchDebugger",       raddbg_open, {})
 vim.api.nvim_create_user_command("RunProject",           run_project,  {})
 vim.api.nvim_create_user_command("RaddbgRun",            raddbg_run_project,  {})
 vim.api.nvim_create_user_command("RaddbgAddBreakpoint",  raddbg_add_breakpoint,  {})
@@ -680,6 +851,7 @@ vim.keymap.set("n", "<C-n>", "<C-^>")
 vim.keymap.set("n", "<A-m>", build_project)
 vim.keymap.set("n", "<S-F3>", grep)
 vim.keymap.set("n", "m", mark)
+vim.keymap.set("n", "<S-m>", goto_mark)
 vim.keymap.set("n", "<F3>", project_grep)
 vim.keymap.set("n", "<F5>", run_project)
 vim.keymap.set("n", "<F6>", raddbg_run_project)
@@ -688,16 +860,27 @@ vim.keymap.set("n", "<S-F6>", raddbg_kill_all)
 vim.keymap.set("n", "<C-r>", "<C-q>");
 vim.keymap.set("n", "<space>d", ":Explore<CR>")
 vim.keymap.set("n", "<A-p>", goto_function)
+vim.keymap.set("n", "+", indent_scope)
+vim.keymap.set("n", "<C-t>", record_macro, {expr = true})
+vim.keymap.set("n", "<C-.>", "@a")
 
 vim.keymap.set("v", "y", custom_visual_yank, {expr = true})
 vim.keymap.set("v", "c", custom_visual_cut, {expr = true})
 vim.keymap.set("v", "d", custom_visual_delete, {expr = true})
 vim.keymap.set("v", "s", ":s/");
+vim.keymap.set("v", "Y", "\"+y")
 
 vim.keymap.set("i", "<C-t>", lsp_complete, {expr = true})
 vim.keymap.set("i", "<tab>", complete, {expr = true})
 vim.keymap.set("i", "<C-BS>", "<C-w>")
 vim.keymap.set("i", "<C-H>", "<C-w>")
+vim.keymap.set("i", "(", handle_open_paren)
+vim.keymap.set("i", ")", handle_close_paren)
+vim.keymap.set("i", "{", handle_open_brace)
+vim.keymap.set("i", "}", handle_close_brace)
+vim.keymap.set("i", "[", handle_open_bracket)
+vim.keymap.set("i", "]", handle_close_bracket)
+vim.keymap.set("i", "<CR>", handle_enter)
 
 
 ------------------
